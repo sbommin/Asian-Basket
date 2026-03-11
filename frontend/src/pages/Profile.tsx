@@ -449,7 +449,7 @@ const Profile = () => {
     city: "",
     state: "",
     zip_code: "",
-    country: "IN",
+    country: "",
     notes: "",
   });
 
@@ -792,8 +792,12 @@ const Profile = () => {
                               <Input
                                 placeholder="Country"
                                 value={newAddr.country}
-                                readOnly
-                                className="bg-muted"
+                                onChange={(e) =>
+                                  setNewAddr({
+                                    ...newAddr,
+                                    zip_code: e.target.value,
+                                  })
+                                }
                               />
                             </div>
                             <Button onClick={onAddAddress} className="w-full">
