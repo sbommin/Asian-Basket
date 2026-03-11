@@ -795,7 +795,7 @@ const Profile = () => {
                                 onChange={(e) =>
                                   setNewAddr({
                                     ...newAddr,
-                                    zip_code: e.target.value,
+                                    country: e.target.value,
                                   })
                                 }
                               />
