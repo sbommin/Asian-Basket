@@ -60,7 +60,7 @@ interface CategoryTabsProps {
   setActiveTab: (tab: string) => void;
 }
 
-const API_URL = "http://127.0.0.1:8000/api/auth/categories/";
+const API_URL = "https://api.asianbasket.ie/api/auth/categories/";
 
 const CategoryTabs = ({ activeTab, setActiveTab }: CategoryTabsProps) => {
   const [categories, setCategories] = useState<Category[]>([]);
