@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = "http://127.0.0.1:8000/api/auth/addresses/";
+const API = "https://asianbasket.ie/api/auth/addresses/";
 
 export function authHeaders() {
   const token = localStorage.getItem("access");
