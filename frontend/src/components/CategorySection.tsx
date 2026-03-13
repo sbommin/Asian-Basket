@@ -555,7 +555,7 @@ const CategorySection = ({
                       src={product.image}
                       alt={product.name}
                       title={product.name}
-                      crossOrigin="anonymous"      // ✅ V1
+                      //crossOrigin="anonymous"      // ✅ V1
                       loading="lazy"               // ✅ V1
                       onError={(e) => {            // ✅ V1 fallback
                         const target = e.target as HTMLImageElement;
