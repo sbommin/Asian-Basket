@@ -1,6 +1,9 @@
 // import { useState, useEffect } from "react";
 // import { Link, useNavigate } from "react-router-dom";
-// import { Menu, ShoppingBag, User, LogOut } from "lucide-react";
+// import {
+//   Menu, Heart, ShoppingBag, User, LogOut,
+//   Package, MapPin, Phone, Loader2,
+// } from "lucide-react";
 // import axios from "axios";
 
 // import { Button } from "@/components/ui/button";
@@ -20,76 +23,126 @@
 // import SearchBar from "./SearchBar";
 // import asianBasketLogo from "@/assets/asian-basket-logo-light.jpg";
 
-// /* ================================
-//    DEFAULT ANNOUNCEMENTS
-// ================================ */
+// const BASE_URL = "https://api.asianbasket.ie/api/auth";
+
+// interface Category {
+//   id: number;
+//   name: string;
+//   slug: string;
+// }
+
 // const DEFAULT_ANNOUNCEMENTS = [
 //   "🚚 Free Delivery available within Dublin for orders above €39.99",
-//   "🥦 Fresh Indian & Asian Groceries",
+//   "🥦 Fresh Indian & Asian Groceries Delivered to Your Door",
 //   "🛒 Order Now!",
 // ];
 
 // const Header = () => {
 //   const [isCartOpen, setIsCartOpen] = useState(false);
 //   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-//   const [announcements, setAnnouncements] = useState<string[]>([]);
+//   const [announcements, setAnnouncements] = useState<string[]>(DEFAULT_ANNOUNCEMENTS);
+//   const [categories, setCategories] = useState<Category[]>([]);
+//   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
 //   const { cartItems } = useCart();
 //   const { user, isAuthenticated, logout } = useAuth();
 //   const navigate = useNavigate();
 
 //   /* ================================
-//      FETCH ANNOUNCEMENTS
+//      FETCH DATA
 //   ================================ */
 //   useEffect(() => {
 //     axios
-//       .get("https://api.asianbasket.ie/api/auth/announcement/")
+//       .get(`${BASE_URL}/announcement/`)
 //       .then((res) => {
 //         if (Array.isArray(res.data) && res.data.length > 0) {
-//           setAnnouncements(res.data.map((a) => a.description));
-//         } else {
-//           setAnnouncements(DEFAULT_ANNOUNCEMENTS);
+//           setAnnouncements(res.data.map((a: any) => a.description));
 //         }
 //       })
-//       .catch(() => {
-//         setAnnouncements(DEFAULT_ANNOUNCEMENTS);
-//       });
+//       .catch(() => {}); // keep DEFAULT_ANNOUNCEMENTS
+
+//     axios
+//       .get(`${BASE_URL}/categories/`)
+//       .then((res) => {
+//         if (Array.isArray(res.data) && res.data.length > 0) {
+//           setCategories(res.data);
+//         }
+//       })
+//       .catch(() => setCategories([]))
+//       .finally(() => setCategoriesLoading(false));
 //   }, []);
 
 //   /* ================================
-//      REPEAT FOR INFINITE SCROLL
+//      FIX: RE-SYNC MARQUEE ON TAB RETURN
 //   ================================ */
-//   const scrollingAnnouncements = [
-//     ...announcements,
-//     ...announcements,
-//     ...announcements,
-//   ];
+//   useEffect(() => {
+//     const handleVisibility = () => {
+//       if (document.visibilityState === "visible") {
+//         const bar = document.getElementById("announcement-bar");
+//         if (bar) {
+//           bar.style.display = "none";
+//           void bar.offsetHeight; // force reflow
+//           bar.style.display = "";
+//         }
+//       }
+//     };
+//     document.addEventListener("visibilitychange", handleVisibility);
+//     return () => document.removeEventListener("visibilitychange", handleVisibility);
+//   }, []);
 
 //   const handleLogout = () => {
 //     logout();
 //     navigate("/");
 //   };
 
+//   const userInitial = user?.name?.[0]?.toUpperCase() ?? "U";
+
 //   return (
-//     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
-//       {/* ANNOUNCEMENT BAR */}
-//       <div className="bg-primary text-primary-foreground py-2 overflow-hidden">
-//         <div className="flex w-max animate-marquee">
-//           {scrollingAnnouncements.map((text, index) => (
-//             <span
-//               key={index}
-//               className="mx-12 text-xs md:text-sm font-semibold whitespace-nowrap"
-//             >
+//     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-card shadow-sm border-b border-border">
+
+//       {/* ── 1. ANNOUNCEMENT BAR ──────────────────────────────────── */}
+//       {/*
+//         Two-div technique:
+//           div1: translateX(0%)   → translateX(-100%)   [animate-marquee]
+//           div2: translateX(100%) → translateX(0%)       [animate-marquee2]
+//         Both run at the same speed so they seamlessly chase each other.
+//         No gap, no jump, works after tab switch.
+//       */}
+//       <div
+//         id="announcement-bar"
+//         className="bg-primary text-primary-foreground py-1.5 overflow-hidden relative"
+//       >
+//         {/* Div 1 — scrolls out to the left */}
+//         <div className="flex absolute whitespace-nowrap animate-marquee">
+//           {announcements.map((text, i) => (
+//             <span key={`a-${i}`} className="mx-12 text-xs md:text-sm font-semibold">
 //               {text}
 //             </span>
 //           ))}
 //         </div>
+
+//         {/* Div 2 — follows immediately behind Div 1 */}
+//         <div className="flex absolute whitespace-nowrap animate-marquee2">
+//           {announcements.map((text, i) => (
+//             <span key={`b-${i}`} className="mx-12 text-xs md:text-sm font-semibold">
+//               {text}
+//             </span>
+//           ))}
+//         </div>
+
+//         {/* Invisible spacer — keeps the bar height consistent */}
+//         <div className="invisible pointer-events-none">
+//           <span className="mx-12 text-xs md:text-sm font-semibold">
+//             {announcements[0]}
+//           </span>
+//         </div>
 //       </div>
 
-//       {/* MAIN HEADER */}
+//       {/* ── 2. MAIN HEADER ───────────────────────────────────────── */}
 //       <div className="container mx-auto px-4 py-3 md:py-4">
 //         <div className="flex items-center justify-between gap-4">
-//           {/* Logo + Mobile Menu */}
+
+//           {/* Logo + Mobile Menu Trigger */}
 //           <div className="flex items-center gap-3">
 //             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
 //               <SheetTrigger asChild>
@@ -97,84 +150,143 @@
 //                   <Menu className="h-6 w-6" />
 //                 </Button>
 //               </SheetTrigger>
-//               <SheetContent side="left" className="w-[300px]">
+
+//               <SheetContent side="left" className="w-[300px] sm:w-[400px] overflow-y-auto">
 //                 <nav className="flex flex-col gap-4 mt-8">
-//                   <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>
+//                   <Link to="/" className="text-lg font-bold text-primary" onClick={() => setIsMobileMenuOpen(false)}>
 //                     Home
 //                   </Link>
-//                   <Link to="/orders" onClick={() => setIsMobileMenuOpen(false)}>
+//                   <Link to="/orders" className="text-lg font-medium" onClick={() => setIsMobileMenuOpen(false)}>
 //                     My Orders
 //                   </Link>
-//                   <Link to="/offers" onClick={() => setIsMobileMenuOpen(false)}>
-//                     Offers
+//                   <Link to="/offers" className="text-lg font-medium" onClick={() => setIsMobileMenuOpen(false)}>
+//                     Special Offers
 //                   </Link>
+
+//                   <hr />
+
+//                   <div className="space-y-1">
+//                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+//                       Categories
+//                     </p>
+//                     {categoriesLoading ? (
+//                       <div className="flex items-center gap-2 py-3 text-muted-foreground">
+//                         <Loader2 className="h-4 w-4 animate-spin" />
+//                         <span className="text-sm">Loading categories...</span>
+//                       </div>
+//                     ) : categories.length > 0 ? (
+//                       categories.map((cat) => (
+//                         <Link
+//                           key={cat.id}
+//                           to={`/category/${cat.slug}`}
+//                           className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+//                           onClick={() => setIsMobileMenuOpen(false)}
+//                         >
+//                           {cat.name}
+//                         </Link>
+//                       ))
+//                     ) : (
+//                       <p className="text-sm text-muted-foreground py-2">
+//                         No categories available
+//                       </p>
+//                     )}
+//                   </div>
+
+//                   <hr />
+
+//                   <div className="space-y-2">
+//                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+//                       Get in Touch
+//                     </p>
+//                     <Link to="/contact" className="block py-2 text-lg font-medium" onClick={() => setIsMobileMenuOpen(false)}>
+//                       Contact Us
+//                     </Link>
+//                     <a href="tel:+353899899412" className="flex items-center gap-2 py-2 text-primary font-medium">
+//                       <Phone className="h-5 w-5" />
+//                       +353 899899412
+//                     </a>
+//                   </div>
 //                 </nav>
 //               </SheetContent>
 //             </Sheet>
 
-//             <Link to="/">
+//             <Link to="/" className="flex items-center gap-2 group">
 //               <img
 //                 src={asianBasketLogo}
-//                 alt="Asian Basket"
-//                 className="h-20 md:h-24 object-contain"
+//                 alt="Asian Basket - Fresh Organic Authentic"
+//                 className="h-20 md:h-24 w-auto object-contain group-hover:scale-105 transition-transform duration-200"
 //               />
 //             </Link>
 //           </div>
 
-//           {/* Search */}
+//           {/* Search Bar — Desktop */}
 //           <div className="hidden md:flex flex-1 justify-center">
 //             <SearchBar />
 //           </div>
 
-//           {/* Actions */}
-//           <div className="flex items-center gap-2">
+//           {/* ── USER ACTIONS ── */}
+//           <div className="flex items-center gap-1 md:gap-3">
+
+//             <Button
+//               variant="ghost"
+//               size="icon"
+//               className="hidden md:inline-flex text-muted-foreground hover:text-primary hover:bg-secondary"
+//             >
+//               <Heart className="h-5 w-5" />
+//             </Button>
+
 //             {isAuthenticated ? (
 //               <DropdownMenu>
 //                 <DropdownMenuTrigger asChild>
-//                   <Button variant="ghost">
-//                     <User className="h-5 w-5 mr-1" />
-//                     {user?.name}
+//                   <Button
+//                     variant="ghost"
+//                     className="flex items-center gap-2 pl-2 pr-3 bg-secondary/50 hover:bg-secondary text-primary rounded-full"
+//                   >
+//                     <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shrink-0">
+//                       {userInitial}
+//                     </div>
+//                     <span className="hidden lg:inline-block max-w-[100px] truncate text-sm font-medium">
+//                       {user?.name}
+//                     </span>
 //                   </Button>
 //                 </DropdownMenuTrigger>
-//                 <DropdownMenuContent align="end">
+//                 <DropdownMenuContent align="end" className="w-56">
+//                   <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+//                     My Account
+//                   </div>
+//                   <DropdownMenuSeparator />
 //                   <DropdownMenuItem onClick={() => navigate("/profile")}>
-//                     Profile
+//                     <User className="mr-2 h-4 w-4" /> Profile
+//                   </DropdownMenuItem>
+//                   <DropdownMenuItem onClick={() => navigate("/orders")}>
+//                     <Package className="mr-2 h-4 w-4" /> My Orders
+//                   </DropdownMenuItem>
+//                   <DropdownMenuItem onClick={() => navigate("/profile?tab=addresses")}>
+//                     <MapPin className="mr-2 h-4 w-4" /> Addresses
 //                   </DropdownMenuItem>
 //                   <DropdownMenuSeparator />
-//                   <DropdownMenuItem
-//                     onClick={handleLogout}
-//                     className="text-destructive"
-//                   >
-//                     <LogOut className="h-4 w-4 mr-2" />
-//                     Logout
+//                   <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+//                     <LogOut className="mr-2 h-4 w-4" /> Logout
 //                   </DropdownMenuItem>
 //                 </DropdownMenuContent>
 //               </DropdownMenu>
 //             ) : (
-//               <div className="flex items-center gap-2">
-//                 <Link to="/login">
-//                   <Button variant="ghost">
-//                     <User className="h-5 w-5 mr-1" />
-//                     Login
-//                   </Button>
-//                 </Link>
-//                 <Link to="/register">
-//                   <Button variant="ghost">
-//                     <User className="h-5 w-5 mr-1" />
-//                     Signup
-//                   </Button>
-//                 </Link>
-//               </div>
+//               <Link to="/login">
+//                 <Button variant="ghost" className="hidden md:inline-flex items-center gap-2 font-medium hover:text-primary">
+//                   <User className="h-5 w-5" />
+//                   <span>Login</span>
+//                 </Button>
+//               </Link>
 //             )}
 
-//             {/* Cart */}
 //             <Button
 //               onClick={() => setIsCartOpen(true)}
-//               className="relative bg-primary text-primary-foreground rounded-full px-4"
+//               className="relative bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-5 h-10 md:h-11 shadow-md hover:shadow-lg transition-all duration-200"
 //             >
-//               <ShoppingBag className="h-5 w-5" />
+//               <ShoppingBag className="h-5 w-5 md:mr-2" />
+//               <span className="hidden md:inline font-bold">My Cart</span>
 //               {cartItems.length > 0 && (
-//                 <span className="absolute -top-2 -right-2 bg-accent text-xs font-bold px-2 rounded-full">
+//                 <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-xs font-bold px-2 py-0.5 rounded-full border-2 border-background min-w-[20px] text-center">
 //                   {cartItems.length}
 //                 </span>
 //               )}
@@ -182,7 +294,7 @@
 //           </div>
 //         </div>
 
-//         {/* Mobile Search */}
+//         {/* Search Bar — Mobile */}
 //         <div className="mt-3 md:hidden">
 //           <SearchBar />
 //         </div>
@@ -245,9 +357,6 @@ const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
-  /* ================================
-     FETCH DATA
-  ================================ */
   useEffect(() => {
     axios
       .get(`${BASE_URL}/announcement/`)
@@ -256,7 +365,7 @@ const Header = () => {
           setAnnouncements(res.data.map((a: any) => a.description));
         }
       })
-      .catch(() => {}); // keep DEFAULT_ANNOUNCEMENTS
+      .catch(() => {});
 
     axios
       .get(`${BASE_URL}/categories/`)
@@ -267,24 +376,6 @@ const Header = () => {
       })
       .catch(() => setCategories([]))
       .finally(() => setCategoriesLoading(false));
-  }, []);
-
-  /* ================================
-     FIX: RE-SYNC MARQUEE ON TAB RETURN
-  ================================ */
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        const bar = document.getElementById("announcement-bar");
-        if (bar) {
-          bar.style.display = "none";
-          void bar.offsetHeight; // force reflow
-          bar.style.display = "";
-        }
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
   const handleLogout = () => {
@@ -299,39 +390,32 @@ const Header = () => {
 
       {/* ── 1. ANNOUNCEMENT BAR ──────────────────────────────────── */}
       {/*
-        Two-div technique:
-          div1: translateX(0%)   → translateX(-100%)   [animate-marquee]
-          div2: translateX(100%) → translateX(0%)       [animate-marquee2]
-        Both run at the same speed so they seamlessly chase each other.
-        No gap, no jump, works after tab switch.
+        Single flex parent animates translateX(0) → translateX(-50%).
+        Two identical children each have min-w-full so together = 200% width.
+        Moving -50% = exactly one full copy scrolled out → seamless loop.
+        No two-div sync issues. Works after tab switch. Width-independent.
       */}
-      <div
-        id="announcement-bar"
-        className="bg-primary text-primary-foreground py-1.5 overflow-hidden relative"
-      >
-        {/* Div 1 — scrolls out to the left */}
-        <div className="flex absolute whitespace-nowrap animate-marquee">
-          {announcements.map((text, i) => (
-            <span key={`a-${i}`} className="mx-12 text-xs md:text-sm font-semibold">
-              {text}
-            </span>
-          ))}
-        </div>
+      <div className="bg-primary text-primary-foreground py-1.5 overflow-hidden">
+        <div className="flex w-max animate-marquee-scroll will-change-transform">
 
-        {/* Div 2 — follows immediately behind Div 1 */}
-        <div className="flex absolute whitespace-nowrap animate-marquee2">
-          {announcements.map((text, i) => (
-            <span key={`b-${i}`} className="mx-12 text-xs md:text-sm font-semibold">
-              {text}
-            </span>
-          ))}
-        </div>
+          {/* Copy 1 — visible copy */}
+          <div className="flex shrink-0 items-center">
+            {announcements.map((text, i) => (
+              <span key={`a-${i}`} className="mx-12 text-xs md:text-sm font-semibold whitespace-nowrap">
+                {text}
+              </span>
+            ))}
+          </div>
 
-        {/* Invisible spacer — keeps the bar height consistent */}
-        <div className="invisible pointer-events-none">
-          <span className="mx-12 text-xs md:text-sm font-semibold">
-            {announcements[0]}
-          </span>
+          {/* Copy 2 — duplicate that creates the seamless loop */}
+          <div className="flex shrink-0 items-center" aria-hidden="true">
+            {announcements.map((text, i) => (
+              <span key={`b-${i}`} className="mx-12 text-xs md:text-sm font-semibold whitespace-nowrap">
+                {text}
+              </span>
+            ))}
+          </div>
+
         </div>
       </div>
 
@@ -339,7 +423,6 @@ const Header = () => {
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between gap-4">
 
-          {/* Logo + Mobile Menu Trigger */}
           <div className="flex items-center gap-3">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -416,14 +499,11 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* Search Bar — Desktop */}
           <div className="hidden md:flex flex-1 justify-center">
             <SearchBar />
           </div>
 
-          {/* ── USER ACTIONS ── */}
           <div className="flex items-center gap-1 md:gap-3">
-
             <Button
               variant="ghost"
               size="icon"
@@ -491,7 +571,6 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Search Bar — Mobile */}
         <div className="mt-3 md:hidden">
           <SearchBar />
         </div>
