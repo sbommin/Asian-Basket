@@ -222,18 +222,12 @@ import asianBasketLogo from "@/assets/asian-basket-logo-light.jpg";
 
 const BASE_URL = "https://api.asianbasket.ie/api/auth";
 
-/* ================================
-   TYPES
-================================ */
 interface Category {
   id: number;
   name: string;
   slug: string;
 }
 
-/* ================================
-   DEFAULT ANNOUNCEMENTS
-================================ */
 const DEFAULT_ANNOUNCEMENTS = [
   "🚚 Free Delivery available within Dublin for orders above €39.99",
   "🥦 Fresh Indian & Asian Groceries Delivered to Your Door",
@@ -243,9 +237,7 @@ const DEFAULT_ANNOUNCEMENTS = [
 const Header = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [announcements, setAnnouncements] = useState<string[]>([]);
-
-  // ✅ NEW — categories state
+  const [announcements, setAnnouncements] = useState<string[]>(DEFAULT_ANNOUNCEMENTS);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
@@ -254,22 +246,18 @@ const Header = () => {
   const navigate = useNavigate();
 
   /* ================================
-     FETCH ANNOUNCEMENTS + CATEGORIES
+     FETCH DATA
   ================================ */
   useEffect(() => {
-    // Announcements
     axios
       .get(`${BASE_URL}/announcement/`)
       .then((res) => {
         if (Array.isArray(res.data) && res.data.length > 0) {
           setAnnouncements(res.data.map((a: any) => a.description));
-        } else {
-          setAnnouncements(DEFAULT_ANNOUNCEMENTS);
         }
       })
-      .catch(() => setAnnouncements(DEFAULT_ANNOUNCEMENTS));
+      .catch(() => {}); // keep DEFAULT_ANNOUNCEMENTS
 
-    // ✅ Categories
     axios
       .get(`${BASE_URL}/categories/`)
       .then((res) => {
@@ -277,19 +265,27 @@ const Header = () => {
           setCategories(res.data);
         }
       })
-      .catch(() => {
-        // Silently fail — mobile drawer just won't show categories
-        setCategories([]);
-      })
+      .catch(() => setCategories([]))
       .finally(() => setCategoriesLoading(false));
   }, []);
 
-  // Triple-repeat for seamless infinite scroll
-  const scrollingAnnouncements = [
-    ...announcements,
-    ...announcements,
-    ...announcements,
-  ];
+  /* ================================
+     FIX: RE-SYNC MARQUEE ON TAB RETURN
+  ================================ */
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const bar = document.getElementById("announcement-bar");
+        if (bar) {
+          bar.style.display = "none";
+          void bar.offsetHeight; // force reflow
+          bar.style.display = "";
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -302,16 +298,40 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-card shadow-sm border-b border-border">
 
       {/* ── 1. ANNOUNCEMENT BAR ──────────────────────────────────── */}
-      <div className="bg-primary text-primary-foreground py-1.5 overflow-hidden">
-        <div className="flex w-max animate-marquee">
-          {scrollingAnnouncements.map((text, index) => (
-            <span
-              key={index}
-              className="mx-12 text-xs md:text-sm font-semibold whitespace-nowrap"
-            >
+      {/*
+        Two-div technique:
+          div1: translateX(0%)   → translateX(-100%)   [animate-marquee]
+          div2: translateX(100%) → translateX(0%)       [animate-marquee2]
+        Both run at the same speed so they seamlessly chase each other.
+        No gap, no jump, works after tab switch.
+      */}
+      <div
+        id="announcement-bar"
+        className="bg-primary text-primary-foreground py-1.5 overflow-hidden relative"
+      >
+        {/* Div 1 — scrolls out to the left */}
+        <div className="flex absolute whitespace-nowrap animate-marquee">
+          {announcements.map((text, i) => (
+            <span key={`a-${i}`} className="mx-12 text-xs md:text-sm font-semibold">
               {text}
             </span>
           ))}
+        </div>
+
+        {/* Div 2 — follows immediately behind Div 1 */}
+        <div className="flex absolute whitespace-nowrap animate-marquee2">
+          {announcements.map((text, i) => (
+            <span key={`b-${i}`} className="mx-12 text-xs md:text-sm font-semibold">
+              {text}
+            </span>
+          ))}
+        </div>
+
+        {/* Invisible spacer — keeps the bar height consistent */}
+        <div className="invisible pointer-events-none">
+          <span className="mx-12 text-xs md:text-sm font-semibold">
+            {announcements[0]}
+          </span>
         </div>
       </div>
 
@@ -328,11 +348,8 @@ const Header = () => {
                 </Button>
               </SheetTrigger>
 
-              {/* ── MOBILE DRAWER ── */}
               <SheetContent side="left" className="w-[300px] sm:w-[400px] overflow-y-auto">
                 <nav className="flex flex-col gap-4 mt-8">
-
-                  {/* Quick Links */}
                   <Link to="/" className="text-lg font-bold text-primary" onClick={() => setIsMobileMenuOpen(false)}>
                     Home
                   </Link>
@@ -345,20 +362,16 @@ const Header = () => {
 
                   <hr />
 
-                  {/* ✅ DYNAMIC CATEGORIES */}
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                       Categories
                     </p>
-
                     {categoriesLoading ? (
-                      // Loading skeleton
                       <div className="flex items-center gap-2 py-3 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="text-sm">Loading categories...</span>
                       </div>
                     ) : categories.length > 0 ? (
-                      // ✅ Rendered from API
                       categories.map((cat) => (
                         <Link
                           key={cat.id}
@@ -370,7 +383,6 @@ const Header = () => {
                         </Link>
                       ))
                     ) : (
-                      // Fallback if API returns empty
                       <p className="text-sm text-muted-foreground py-2">
                         No categories available
                       </p>
@@ -379,22 +391,14 @@ const Header = () => {
 
                   <hr />
 
-                  {/* Get in Touch */}
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                       Get in Touch
                     </p>
-                    <Link
-                      to="/contact"
-                      className="block py-2 text-lg font-medium"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
+                    <Link to="/contact" className="block py-2 text-lg font-medium" onClick={() => setIsMobileMenuOpen(false)}>
                       Contact Us
                     </Link>
-                    <a
-                      href="tel:+353899899412"
-                      className="flex items-center gap-2 py-2 text-primary font-medium"
-                    >
+                    <a href="tel:+353899899412" className="flex items-center gap-2 py-2 text-primary font-medium">
                       <Phone className="h-5 w-5" />
                       +353 899899412
                     </a>
@@ -403,7 +407,6 @@ const Header = () => {
               </SheetContent>
             </Sheet>
 
-            {/* Logo */}
             <Link to="/" className="flex items-center gap-2 group">
               <img
                 src={asianBasketLogo}
@@ -421,7 +424,6 @@ const Header = () => {
           {/* ── USER ACTIONS ── */}
           <div className="flex items-center gap-1 md:gap-3">
 
-            {/* Wishlist — Desktop only */}
             <Button
               variant="ghost"
               size="icon"
@@ -430,7 +432,6 @@ const Header = () => {
               <Heart className="h-5 w-5" />
             </Button>
 
-            {/* Account */}
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -446,7 +447,6 @@ const Header = () => {
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
-
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
                     My Account
@@ -462,27 +462,20 @@ const Header = () => {
                     <MapPin className="mr-2 h-4 w-4" /> Addresses
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="text-destructive focus:text-destructive"
-                  >
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                     <LogOut className="mr-2 h-4 w-4" /> Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Link to="/login">
-                <Button
-                  variant="ghost"
-                  className="hidden md:inline-flex items-center gap-2 font-medium hover:text-primary"
-                >
+                <Button variant="ghost" className="hidden md:inline-flex items-center gap-2 font-medium hover:text-primary">
                   <User className="h-5 w-5" />
                   <span>Login</span>
                 </Button>
               </Link>
             )}
 
-            {/* Cart Button */}
             <Button
               onClick={() => setIsCartOpen(true)}
               className="relative bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 md:px-5 h-10 md:h-11 shadow-md hover:shadow-lg transition-all duration-200"
@@ -504,12 +497,11 @@ const Header = () => {
         </div>
       </div>
 
-      {/* ── 3. MEGA MENU (Desktop) ────────────────────────────────── */}
       <MegaMenu />
-
       <Cart isOpen={isCartOpen} setIsOpen={setIsCartOpen} />
     </header>
   );
 };
 
 export default Header;
+
