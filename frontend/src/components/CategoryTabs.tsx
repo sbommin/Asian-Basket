@@ -2,42 +2,6 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import {
-  Fish, Carrot, Beef, Wheat, Coffee, Apple, Egg,
-  Salad, Soup, Sandwich, IceCream, ShoppingBasket,
-  Milk, Flame, Leaf, Cookie, Pizza, Grape, Cherry,
-  Citrus, Banana, Nut, Corn, Bean, LeafyGreen,       // Lettuce / leafy veg / cabbage
-  Utensils,         // General food / restaurant
-  UtensilsCrossed,  // No food / diet
-  ChefHat,          // Chef / cooking
-  CookingPot,       // Curries / stews / hot dishes
-  Drumstick,        // Chicken / poultry
-  Croissant,        // Bakery / bread
-  Candy,            // Sweets / confectionery
-  CandyOff,         // Sugar-free
-  Wine,             // Alcohol / beverages
-  Beer,             // Beer / beverages
-  GlassWater,       // Water / hydration
-  CupSoda,          // Soft drinks / beverages
-  Martini,          // Cocktails / beverages (if available)
-  Popcorn,          // Snacks
-  Lollipop,         // Candy / kids
-  Ham,              // Deli / cured meats
-  Pipette,          // Oils / liquids
-  Droplets,         // Oils / sauces / liquids
-  ShoppingCart,     // General groceries
-  Package,          // Packaged goods / dry food
-  Box,              // Pantry / packaged items
-  Sparkles,         // Premium / organic
-  Star,             // Featured / bestsellers
-  Tag,              // Offers / deals type LucideIcon,
-  type LucideIcon,
-} from "lucide-react";
-
-/* ================================
-   ICON MAP — string → Lucide component
-   Add more as needed from your admin
-================================ */
-const ICON_MAP: Record<string, LucideIcon> = {
   Fish,
   Carrot,
   Beef,
@@ -50,6 +14,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Sandwich,
   IceCream,
   ShoppingBasket,
+  ShoppingCart,
   Milk,
   Flame,
   Leaf,
@@ -57,12 +22,84 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Pizza,
   Grape,
   Cherry,
-  Citrus,
-  Banana,
-  Nut,
-  Corn,
   Bean,
+  Utensils,
+  UtensilsCrossed,
+  ChefHat,
+  CookingPot,
+  Croissant,
+  Candy,
+  Wine,
+  Beer,
+  GlassWater,
+  Droplets,
+  Package,
+  Box,
+  Sparkles,
+  Star,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
+
+/* ================================
+   ICON MAP — admin types exact key
+================================ */
+const ICON_MAP: Record<string, LucideIcon> = {
+  // Proteins
+  Fish,
+  Beef,
+  Egg,
+
+  // Vegetables & Fruits
+  Carrot,
+  Apple,
+  Salad,
+  Grape,
+  Cherry,
+  Bean,
+  Leaf,
+
+  // Grains & Pantry
+  Wheat,
+  Package,
+  Box,
+
+  // Dairy
+  Milk,
+
+  // Cooked / Ready Food
+  Soup,
+  Sandwich,
+  Pizza,
+  Croissant,
+  CookingPot,
+  Utensils,
+  UtensilsCrossed,
+  ChefHat,
+  Flame,
+
+  // Snacks & Sweets
+  Cookie,
+  IceCream,
+  Candy,
+
+  // Beverages
+  Coffee,
+  Wine,
+  Beer,
+  GlassWater,
+
+  // Oils & Sauces
+  Droplets,
+
+  // General / Misc
+  ShoppingBasket,
+  ShoppingCart,
+  Sparkles,
+  Star,
+  Tag,
 };
+
 
 /* ================================
    TYPES
