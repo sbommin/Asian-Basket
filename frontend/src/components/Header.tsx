@@ -198,14 +198,8 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Menu,
-  Heart,
-  ShoppingBag,
-  User,
-  LogOut,
-  Package,
-  MapPin,
-  Phone,
+  Menu, Heart, ShoppingBag, User, LogOut,
+  Package, MapPin, Phone, Loader2,
 } from "lucide-react";
 import axios from "axios";
 
@@ -226,6 +220,17 @@ import MegaMenu from "./MegaMenu";
 import SearchBar from "./SearchBar";
 import asianBasketLogo from "@/assets/asian-basket-logo-light.jpg";
 
+const BASE_URL = "https://api.asianbasket.ie/api/auth";
+
+/* ================================
+   TYPES
+================================ */
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 /* ================================
    DEFAULT ANNOUNCEMENTS
 ================================ */
@@ -240,16 +245,21 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<string[]>([]);
 
+  // ✅ NEW — categories state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const { cartItems } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   /* ================================
-     FETCH ANNOUNCEMENTS FROM BACKEND
+     FETCH ANNOUNCEMENTS + CATEGORIES
   ================================ */
   useEffect(() => {
+    // Announcements
     axios
-      .get("https://api.asianbasket.ie/api/auth/announcement/")
+      .get(`${BASE_URL}/announcement/`)
       .then((res) => {
         if (Array.isArray(res.data) && res.data.length > 0) {
           setAnnouncements(res.data.map((a: any) => a.description));
@@ -258,6 +268,20 @@ const Header = () => {
         }
       })
       .catch(() => setAnnouncements(DEFAULT_ANNOUNCEMENTS));
+
+    // ✅ Categories
+    axios
+      .get(`${BASE_URL}/categories/`)
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setCategories(res.data);
+        }
+      })
+      .catch(() => {
+        // Silently fail — mobile drawer just won't show categories
+        setCategories([]);
+      })
+      .finally(() => setCategoriesLoading(false));
   }, []);
 
   // Triple-repeat for seamless infinite scroll
@@ -272,11 +296,11 @@ const Header = () => {
     navigate("/");
   };
 
-  // Get user initial for avatar
   const userInitial = user?.name?.[0]?.toUpperCase() ?? "U";
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-card shadow-sm border-b border-border">
+
       {/* ── 1. ANNOUNCEMENT BAR ──────────────────────────────────── */}
       <div className="bg-primary text-primary-foreground py-1.5 overflow-hidden">
         <div className="flex w-max animate-marquee">
@@ -294,6 +318,7 @@ const Header = () => {
       {/* ── 2. MAIN HEADER ───────────────────────────────────────── */}
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between gap-4">
+
           {/* Logo + Mobile Menu Trigger */}
           <div className="flex items-center gap-3">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -304,99 +329,57 @@ const Header = () => {
               </SheetTrigger>
 
               {/* ── MOBILE DRAWER ── */}
-              <SheetContent
-                side="left"
-                className="w-[300px] sm:w-[400px] overflow-y-auto"
-              >
+              <SheetContent side="left" className="w-[300px] sm:w-[400px] overflow-y-auto">
                 <nav className="flex flex-col gap-4 mt-8">
-                  <Link
-                    to="/"
-                    className="text-lg font-bold text-primary"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
+
+                  {/* Quick Links */}
+                  <Link to="/" className="text-lg font-bold text-primary" onClick={() => setIsMobileMenuOpen(false)}>
                     Home
                   </Link>
-                  <Link
-                    to="/orders"
-                    className="text-lg font-medium"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
+                  <Link to="/orders" className="text-lg font-medium" onClick={() => setIsMobileMenuOpen(false)}>
                     My Orders
                   </Link>
-                  <Link
-                    to="/offers"
-                    className="text-lg font-medium"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
+                  <Link to="/offers" className="text-lg font-medium" onClick={() => setIsMobileMenuOpen(false)}>
                     Special Offers
-                  </Link>
-                  <Link
-                    to="/search?q=Festival"
-                    className="text-lg font-medium"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Festival Season
-                  </Link>
-                  <Link
-                    to="/search?q=Indian Fruits"
-                    className="text-lg font-medium"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Indian Fruits
                   </Link>
 
                   <hr />
 
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  {/* ✅ DYNAMIC CATEGORIES */}
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                       Categories
                     </p>
-                    <Link
-                      to="/category/fruits-veg"
-                      className="block py-2"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Fruits & Vegetables
-                    </Link>
-                    <Link
-                      to="/category/meat"
-                      className="block py-2"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Meat & Poultry
-                    </Link>
-                    <Link
-                      to="/category/seafood"
-                      className="block py-2"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Seafood
-                    </Link>
-                    <Link
-                      to="/category/staples"
-                      className="block py-2"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Rice & Flour
-                    </Link>
-                    <Link
-                      to="/category/dairy"
-                      className="block py-2"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Dairy & Bakery
-                    </Link>
-                    <Link
-                      to="/category/snacks"
-                      className="block py-2"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Snacks & Drinks
-                    </Link>
+
+                    {categoriesLoading ? (
+                      // Loading skeleton
+                      <div className="flex items-center gap-2 py-3 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Loading categories...</span>
+                      </div>
+                    ) : categories.length > 0 ? (
+                      // ✅ Rendered from API
+                      categories.map((cat) => (
+                        <Link
+                          key={cat.id}
+                          to={`/category/${cat.slug}`}
+                          className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          {cat.name}
+                        </Link>
+                      ))
+                    ) : (
+                      // Fallback if API returns empty
+                      <p className="text-sm text-muted-foreground py-2">
+                        No categories available
+                      </p>
+                    )}
                   </div>
 
                   <hr />
 
+                  {/* Get in Touch */}
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                       Get in Touch
@@ -437,7 +420,15 @@ const Header = () => {
 
           {/* ── USER ACTIONS ── */}
           <div className="flex items-center gap-1 md:gap-3">
+
             {/* Wishlist — Desktop only */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:inline-flex text-muted-foreground hover:text-primary hover:bg-secondary"
+            >
+              <Heart className="h-5 w-5" />
+            </Button>
 
             {/* Account */}
             {isAuthenticated ? (
@@ -447,7 +438,6 @@ const Header = () => {
                     variant="ghost"
                     className="flex items-center gap-2 pl-2 pr-3 bg-secondary/50 hover:bg-secondary text-primary rounded-full"
                   >
-                    {/* Avatar circle with initial */}
                     <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shrink-0">
                       {userInitial}
                     </div>
@@ -468,9 +458,7 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => navigate("/orders")}>
                     <Package className="mr-2 h-4 w-4" /> My Orders
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => navigate("/profile?tab=addresses")}
-                  >
+                  <DropdownMenuItem onClick={() => navigate("/profile?tab=addresses")}>
                     <MapPin className="mr-2 h-4 w-4" /> Addresses
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -483,25 +471,15 @@ const Header = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link to="/login">
-                  <Button
-                    variant="ghost"
-                    className="hidden md:inline-flex items-center gap-2 font-medium hover:text-primary"
-                  >
-                    <User className="h-5 w-5" />
-                    <span>Login</span>
-                  </Button>
-                </Link>
-                {/* <Link to="/register">
-                  <Button
-                    variant="default"
-                    className="hidden md:inline-flex items-center gap-2 font-medium rounded-full px-4"
-                  >
-                    Sign Up
-                  </Button>
-                </Link> */}
-              </div>
+              <Link to="/login">
+                <Button
+                  variant="ghost"
+                  className="hidden md:inline-flex items-center gap-2 font-medium hover:text-primary"
+                >
+                  <User className="h-5 w-5" />
+                  <span>Login</span>
+                </Button>
+              </Link>
             )}
 
             {/* Cart Button */}
