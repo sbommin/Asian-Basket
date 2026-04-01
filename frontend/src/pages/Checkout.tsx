@@ -629,7 +629,7 @@ const Checkout = () => {
                         <Input
                           {...register("city")}
                           readOnly={selectedAddressId !== "manual"}
-                          placeholder="Mumbai"
+                          placeholder="Dublin"
                           className="h-11 text-base"
                         />
                         {errors.city && (
@@ -644,7 +644,7 @@ const Checkout = () => {
                         <Input
                           {...register("state")}
                           readOnly={selectedAddressId !== "manual"}
-                          placeholder="Maharashtra"
+                          placeholder="Dublin"
                           className="h-11 text-base"
                         />
                         {errors.state && (
@@ -661,7 +661,7 @@ const Checkout = () => {
                         <Input
                           {...register("zipCode")}
                           readOnly={selectedAddressId !== "manual"}
-                          placeholder="400001"
+                          placeholder="X91H2TN"
                           className="h-11 text-base"
                         />
                         {errors.zipCode && (
@@ -675,7 +675,7 @@ const Checkout = () => {
                         <Label className="text-sm font-medium">Country *</Label>
                         <Input
                           {...register("country")}
-                          placeholder="Germany"
+                          placeholder="Ireland"
                           className="h-11 text-base"
                         />
                         {errors.country && (
