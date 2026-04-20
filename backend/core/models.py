@@ -4,6 +4,29 @@ from django.db import models
 from django.utils.text import slugify
 from django.utils import timezone
 
+class Offer(models.Model):
+    BADGE_CHOICES = [
+        ("percent",  "Percent Off"),
+        ("bogo",     "Buy 1 Get 1"),
+        ("delivery", "Free Delivery"),
+        ("flat",     "Flat Off"),
+        ("custom",   "Custom"),
+    ]
+
+    title       = models.CharField(max_length=100)              # e.g. "50% OFF"
+    description = models.CharField(max_length=255)              # e.g. "On all fresh vegetables"
+    validity    = models.CharField(max_length=100, blank=True)  # e.g. "Valid until end of month"
+    badge_type  = models.CharField(max_length=20, choices=BADGE_CHOICES, default="custom")
+    is_active   = models.BooleanField(default=True)
+    priority    = models.PositiveIntegerField(default=0)        # higher = shown first
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-priority", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
 class UserManager(BaseUserManager):
     def create_user(self, email, full_name, password=None):
         if not email:
@@ -310,67 +333,69 @@ class Banner(models.Model):
 
 
 class Product(models.Model):
-    name = models.CharField(max_length=200)
-    slug = models.SlugField(unique=True)
+    name     = models.CharField(max_length=200)
+    slug     = models.SlugField(unique=True)
+    description = models.TextField(blank=True,null=True, default="")  # ✅ NEW — for quick view modal
 
     category = models.ForeignKey(
         "Category",
         on_delete=models.CASCADE,
-        related_name="products"
+        related_name="products",
+        db_index=True,       # ✅ faster category page queries
     )
-
     subcategory = models.ForeignKey(
         "SubCategory",
         on_delete=models.CASCADE,
-        related_name="products"
+        related_name="products",
+        db_index=True,       # ✅ faster subcategory filter queries
     )
 
     image = models.ImageField(upload_to="products/")
 
-    mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    mrp   = models.DecimalField(max_digits=10, decimal_places=2)
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     stock_quantity = models.PositiveIntegerField(default=0)
-    in_stock = models.BooleanField(default=True)  # 🔥 KEEP CHECKBOX
+    in_stock       = models.BooleanField(default=True, db_index=True)  # ✅ indexed
 
-    weight = models.FloatField(default=0.5)
-
+    weight   = models.FloatField(default=0.5)        # ✅ fixed — own line
     priority = models.IntegerField(default=0)
+
     is_trending = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_active   = models.BooleanField(default=True, db_index=True)   # ✅ indexed
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-priority", "-in_stock", "-created_at"]  # ✅ default ordering
+        indexes = [
+            models.Index(fields=["is_active", "category"]),        # ✅ category page
+            models.Index(fields=["is_active", "subcategory"]),     # ✅ subcategory filter
+            models.Index(fields=["is_active", "is_trending"]),     # ✅ trending section
+            models.Index(fields=["-priority", "-in_stock"]),       # ✅ sort order
+        ]
+
+    # ✅ Both conditions must be true
     @property
     def final_stock_status(self):
-        # 🔥 BOTH CONDITIONS
         return self.in_stock and self.stock_quantity > 0
+
+    # ✅ NEW — used by frontend for "€x.xx/kg" display
+    @property
+    def price_per_kg(self):
+        if self.weight and self.weight > 0:
+            return round(float(self.price) / float(self.weight), 2)
+        return None
+
+    # ✅ NEW — discount percentage for badge
+    @property
+    def discount_percentage(self):
+        if self.mrp and self.mrp > self.price:
+            return round(((self.mrp - self.price) / self.mrp) * 100)
+        return None
 
     def __str__(self):
         return self.name
-
-from django.db import models
-from django.utils import timezone
-
-
-# class PromoCode(models.Model):
-#     code = models.CharField(max_length=20, unique=True)
-#     discount_percent = models.PositiveIntegerField(
-#         help_text="Discount percentage (e.g., 10 for 10%)"
-#     )
-#     valid_from = models.DateTimeField(default=timezone.now)
-#     valid_until = models.DateTimeField()
-#     active = models.BooleanField(default=True)
-
-#     def __str__(self):
-#         return f"{self.code} - {self.discount_percent}%"
-
-#     @property
-#     def is_valid(self):
-#         now = timezone.now()
-#         return self.active and self.valid_from <= now <= self.valid_until
-    
-# core/models.py
 
 from decimal import Decimal
 from django.db import models

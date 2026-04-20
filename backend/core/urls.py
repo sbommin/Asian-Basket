@@ -81,7 +81,7 @@ from .views import (
     create_revolut_payment,
     verify_revolut_payment
 )
-
+from .views import offer_list
 router = DefaultRouter()
 router.register(r"addresses", AddressViewSet, basename="addresses")
 
@@ -100,5 +100,6 @@ urlpatterns = [
     path("apply-promocode/", ApplyPromoCodeView.as_view(), name="apply-promocode"),
     path("payment/verify/", verify_revolut_payment),
     path("payment/webhook/revolut/", revolut_webhook, name="revolut-webhook"),
+    path("offers/", offer_list, name="offer-list"),
     path('', include(router.urls)),
 ]

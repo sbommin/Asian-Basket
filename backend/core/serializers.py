@@ -4,6 +4,13 @@ from .models import User
 from .models import Category
 from .models import SubCategory
 from .models import PromoCode
+from .models import Product
+from .models import Offer
+
+class OfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Offer
+        fields = ["id", "title", "description", "validity", "badge_type", "priority"]
 
 # Signup
 class RegisterSerializer(serializers.ModelSerializer):
@@ -198,147 +205,18 @@ class BannerSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url)
         return None
 
-
-# from rest_framework import serializers
-# from .models import Product
-
-
-# class ProductSerializer(serializers.ModelSerializer):
-#     image = serializers.SerializerMethodField()
-#     category = serializers.StringRelatedField()
-#     subcategory = serializers.StringRelatedField()
-
-#     class Meta:
-#         model = Product
-#         fields = [
-#             "id",
-#             "name",
-#             "slug",
-#             "image",
-#             "mrp",
-#             "price",
-#             "category",
-#             "subcategory",
-#             "in_stock",     # ✅ stock availability
-#             "priority",     # ✅ priority ordering
-#         ]
-
-#     def get_image(self, obj):
-#         request = self.context.get("request")
-#         if obj.image and request:
-#             return request.build_absolute_uri(obj.image.url)
-#         return None
-
-
-# from rest_framework import serializers
-# from .models import Product
-
-# class ProductSerializer(serializers.ModelSerializer):
-#     image = serializers.SerializerMethodField()
-#     category = serializers.StringRelatedField()
-#     subcategory = serializers.StringRelatedField()
-
-#     class Meta:
-#         model = Product
-#         fields = [
-#             "id",
-#             "name",
-#             "slug",
-#             "image",
-#             "mrp",
-#             "price",
-#             "category",
-#             "subcategory",
-#             "in_stock",
-#             "stock_quantity",
-#             "priority",
-#             "is_trending"
-#         ]
-
-#     def get_image(self, obj):
-#         request = self.context.get("request")
-#         if obj.image and request:
-#             return request.build_absolute_uri(obj.image.url)
-#         return None
-
-#working code 
-
-# from rest_framework import serializers
-# from .models import Product
-
-# class ProductSerializer(serializers.ModelSerializer):
-#     image = serializers.SerializerMethodField()
-
-#     # ✅ USE SLUGS (NOT StringRelatedField)
-#     category = serializers.CharField(source="category.slug")
-#     subcategory = serializers.CharField(source="subcategory.slug")
-
-#     class Meta:
-#         model = Product
-#         fields = [
-#             "id",
-#             "name",
-#             "slug",
-#             "image",
-#             "mrp",
-#             "price",
-#             "category",
-#             "subcategory",
-#             "in_stock",
-#             "stock_quantity",
-#             "priority",
-#             "is_trending",
-#         ]
-
-#     def get_image(self, obj):
-#         request = self.context.get("request")
-#         if obj.image and request:
-#             return request.build_absolute_uri(obj.image.url)
-#         return None
-
-
-
-from rest_framework import serializers
-from .models import Product
-
-
-# class ProductSerializer(serializers.ModelSerializer):
-#     image = serializers.SerializerMethodField()
-
-#     # ✅ Send BOTH name and slug
-#     category = serializers.CharField(source="category.slug")
-#     category_name = serializers.CharField(source="category.name")
-
-#     class Meta:
-#         model = Product
-#         fields = [
-#             "id",
-#             "name",
-#             "slug",
-#             "image",
-#             "mrp",
-#             "price",
-#             "stock_quantity",
-#             "in_stock",        # ✅ VERY IMPORTANT
-#             "weight",
-#             "category",        # slug
-#             "category_name",   # name
-#             "priority",
-#         ]
-
-#     def get_image(self, obj):
-#         request = self.context.get("request")
-#         if obj.image and request:
-#             return request.build_absolute_uri(obj.image.url)
-#         return None
-
-
 class ProductSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-    final_stock_status = serializers.ReadOnlyField()
+    image               = serializers.SerializerMethodField()
+    final_stock_status  = serializers.ReadOnlyField()
+    price_per_kg        = serializers.ReadOnlyField()        # ✅ NEW
+    discount_percentage = serializers.ReadOnlyField()        # ✅ NEW
 
-    category = serializers.CharField(source="category.slug")
+    category      = serializers.CharField(source="category.slug")
     category_name = serializers.CharField(source="category.name")
+
+    # ✅ NEW — subcategory fields for frontend filtering
+    subcategory      = serializers.CharField(source="subcategory.slug")
+    subcategory_name = serializers.CharField(source="subcategory.name")
 
     class Meta:
         model = Product
@@ -346,16 +224,22 @@ class ProductSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "slug",
+            "description",           # ✅ NEW
             "image",
             "mrp",
             "price",
+            "price_per_kg",          # ✅ NEW — €x.xx/kg for frontend
+            "discount_percentage",   # ✅ NEW — pre-computed % badge
             "stock_quantity",
             "in_stock",
-            "final_stock_status",  # 🔥 IMPORTANT
+            "final_stock_status",
             "weight",
             "category",
             "category_name",
+            "subcategory",           # ✅ NEW
+            "subcategory_name",      # ✅ NEW
             "priority",
+            "is_trending",           # ✅ NEW — used by TrendingSection
         ]
 
     def get_image(self, obj):
@@ -363,13 +247,6 @@ class ProductSerializer(serializers.ModelSerializer):
         if obj.image and request:
             return request.build_absolute_uri(obj.image.url)
         return None
-# class PromoCodeSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = PromoCode
-#         fields = ['code', 'discount_percent']
-
-
-# core/serializers.py
 
 from decimal import Decimal
 from rest_framework import serializers

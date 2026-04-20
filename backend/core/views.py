@@ -1,11 +1,15 @@
 from rest_framework.views import APIView
+from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework import status, generics, viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import PromoCode
-
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework import generics
@@ -21,6 +25,16 @@ from .serializers import (
     ProductSerializer
 )
 
+from .models import Offer
+from .serializers import OfferSerializer
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def offer_list(request):
+    offers = Offer.objects.filter(is_active=True)
+    serializer = OfferSerializer(offers, many=True)
+    return Response(serializer.data)
 
 # ===================== AUTH =====================
 class RegisterView(APIView):
@@ -638,7 +652,7 @@ def create_revolut_payment(request):
             "Authorization": f"Bearer {settings.REVOLUT_SECRET_KEY}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Revolut-Api-Version": "2023-09-01",
+            "Revolut-Api-Version": "2024-09-01",
         }
 
         # ✅ STEP 7: Revolut payload with backend-calculated total
@@ -715,7 +729,7 @@ def verify_revolut_payment(request):
 
     headers = {
         "Authorization": f"Bearer {settings.REVOLUT_SECRET_KEY}",
-        "Revolut-Api-Version": "2023-09-01",
+        "Revolut-Api-Version": "2024-09-01",
     }
 
     response = requests.get(
@@ -765,7 +779,7 @@ from .models import Order
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
-@method_decorator(csrf_exempt, name='dispatch')
+#@method_decorator(csrf_exempt, name='dispatch')
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([AllowAny])
@@ -776,7 +790,21 @@ def revolut_webhook(request):
     """
     payload = request.data
     logger.info(f"REVOLUT WEBHOOK RECEIVED: {payload}")
+    revolut_signature = request.headers.get("Revolut-Signature")
+    if not revolut_signature:
+        return Response({"detail": "Missing signature"}, status=400)
 
+    expected = hmac.new(
+        settings.REVOLUT_WEBHOOK_SECRET.encode(),
+        request.body,
+        hashlib.sha256
+    ).hexdigest()
+
+    # Revolut sends "v1=<hash>"
+    received = revolut_signature.replace("v1=", "")
+    if not hmac.compare_digest(expected, received):
+        logger.warning("Invalid Revolut webhook signature")
+        return Response({"detail": "Invalid signature"}, status=403)
     event_type = payload.get("event")
     order_data = payload.get("data", {}).get("order", {})
 

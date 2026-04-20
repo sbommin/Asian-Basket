@@ -26,8 +26,8 @@ SECRET_KEY = 'django-insecure-wbt&46_nbyw9j+&b!x)!4tj*s0!%*$a*m+k_il#wcgd^cc-_9r
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
-CORS_ALLOW_ALL_ORIGINS = True
+ALLOWED_HOSTS = ["asianbasket.ie","api.asianbasket.ie","admin.asianbasket.ie"]
+#CORS_ALLOW_ALL_ORIGINS = True
 
 
 # Application definition
@@ -97,11 +97,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'asianbasket_db',
+        'USER': 'asianbasket_user',
+        'PASSWORD': 'your_strong_password',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -137,16 +140,17 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
-
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles' 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
+    "https://asianbasket.ie",
+    "https://www.asianbasket.ie",
+    "https://api.asianbasket.ie",
+    "https://admin.asianbasket.ie"
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -173,7 +177,6 @@ JAZZMIN_SETTINGS = {
     "site_title": "Asian Basket Admin",
     "site_header": "Asian Basket",
     "site_brand": "Asian Basket",
-    "site_logo": "images/logo.png",   # optional
     "login_logo": None,
     "login_logo_dark": None,
     "site_icon": None,
@@ -223,15 +226,20 @@ JAZZMIN_SETTINGS = {
 from dotenv import load_dotenv
 load_dotenv()
 
-REVOLUT_SECRET_KEY = "sk_-D__Ba0UFVFykla-DEseC0uiszRHDPEvfn9fsEyu3Q2aUrTCyD8ZnnMFqq38cSOy"
-REVOLUT_PUBLIC_KEY = "pk_iESyilztHaw6iyCOI85pf3WqhLBKuY1CwMYoCv850g9k6WQX"
-
+#REVOLUT_SECRET_KEY = "sk_-D__Ba0UFVFykla-DEseC0uiszRHDPEvfn9fsEyu3Q2aUrTCyD8ZnnMFqq38cSOy"
+#REVOLUT_PUBLIC_KEY = "pk_iESyilztHaw6iyCOI85pf3WqhLBKuY1CwMYoCv850g9k6WQX"
+REVOLUT_SECRET_KEY="sk_UaVIr7i9p6HSGQCQlPPuLVwFzMC456gkOIKqXfmZFaWqGB6L5RpMPY9CYG1wTwSo"
+REVOLUT_PUBLIC_KEY="pk_TTEe2kSP8MzZV6cfutzIfSzhlqDPPbhKWhNLoD2CpD5s9qIy"
 #REVOLUT_BASE_URL = "https://merchant.revolut.com/api/1.0"
-REVOLUT_BASE_URL ="https://sandbox-merchant.revolut.com/api/orders"
+REVOLUT_BASE_URL ="https://merchant.revolut.com/api/orders"
 # ✅ CRITICAL FIX
 # FRONTEND_URL = "http://localhost:5173"
-FRONTEND_URL = "https://trackfood.vercel.app/"
+FRONTEND_URL = "https://asianbasket.ie/"
 
-BACKEND_PUBLIC_URL = "https://trackfood.vercel.app/"
+BACKEND_PUBLIC_URL = "https://api.asianbasket.ie/"
 
-REVOLUT_WEBHOOK_SIGNING_SECRET="wsk_Us2HFPJuKiB307kcpzjBJOGE4PPQoTqd"
+#REVOLUT_WEBHOOK_SIGNING_SECRET="wsk_Us2HFPJuKiB307kcpzjBJOGE4PPQoTqd"
+REVOLUT_WEBHOOK_SIGNING_SECRET="wsk_9R6WqsCUWsKWauwHuFtTu0OkoqaE7Zu3"
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
