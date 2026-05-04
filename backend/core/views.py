@@ -594,9 +594,12 @@ def create_revolut_payment(request):
         frontend_delivery_fee = round(float(data["delivery_fee"]), 2)
 
         # ✅ STEP 1: Recalculate delivery fee on backend
-        delivery_result = calculate_delivery_fee(
+        
+      delivery_area = data.get("delivery_area", "dublin") # "dublin" or "outside_dublin"
+      
+      delivery_result = calculate_delivery_fee(
             items=data["items"],
-            city=data["city"],
+            delivery_area=delivery_area,
             subtotal=subtotal
         )
         expected_delivery_fee = delivery_result["total"]
@@ -842,3 +845,391 @@ def revolut_webhook(request):
     logger.info(f"Order {order.order_id} updated to {order.payment_status}")
 
     return Response({"detail": "ok"}, status=status.HTTP_200_OK)
+  
+# ============================================================
+# ADD THESE TO YOUR EXISTING views.py (at the bottom)
+# ============================================================
+
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import AbandonedCart
+from .serializers import AbandonedCartSyncSerializer, AbandonedCartAdminSerializer
+
+
+# ─── 1. SYNC CART (called from frontend on every cart change) ────────────────
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def sync_abandoned_cart(request):
+    """
+    Frontend calls this endpoint every time the cart changes.
+    Creates or updates the AbandonedCart record for the logged-in user.
+    If cart is empty, deletes the record (no longer abandoned).
+    """
+    serializer = AbandonedCartSyncSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    data = serializer.validated_data
+
+    # If cart is empty, remove the abandoned cart record
+    if data["total_items"] == 0:
+        AbandonedCart.objects.filter(
+            user=request.user,
+            status="active"
+        ).delete()
+        return Response({"detail": "Cart cleared."})
+
+    user = request.user
+
+    # Create or update
+    cart, _ = AbandonedCart.objects.update_or_create(
+        user=user,
+        status="active",
+        defaults={
+            "customer_name":  user.full_name or "",
+            "customer_email": user.email or "",
+            "customer_phone": user.phone or "",
+            "items":          data["items"],
+            "total_items":    data["total_items"],
+            "total_amount":   data["total_amount"],
+        },
+    )
+
+    return Response({"detail": "Cart synced.", "cart_id": cart.id})
+
+
+# ─── 2. MARK CART AS CONVERTED (called when order is placed) ─────────────────
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def convert_abandoned_cart(request):
+    """
+    Called after a successful order placement to mark the cart as converted.
+    This stops it from showing as abandoned in the admin.
+    """
+    try:
+        cart = AbandonedCart.objects.get(user=request.user, status="active")
+        cart.status       = "converted"
+        cart.converted_at = timezone.now()
+        cart.save()
+    except AbandonedCart.DoesNotExist:
+        pass  # Cart already cleared or never existed — that's fine
+
+    return Response({"detail": "Cart marked as converted."})
+
+
+# ─── 3. ADMIN LIST (admin only) ──────────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_abandoned_carts(request):
+    """
+    Returns all abandoned (active) carts for the admin dashboard.
+    Supports filtering by status and search by email.
+    Also auto-marks stale carts (7+ days idle) as expired.
+    """
+    # Auto-expire stale carts
+    stale_cutoff = timezone.now() - timezone.timedelta(days=7)
+    AbandonedCart.objects.filter(
+        status="active",
+        updated_at__lt=stale_cutoff
+    ).update(status="expired")
+
+    # Filtering
+    cart_status = request.query_params.get("status", "active")
+    search      = request.query_params.get("search", "").strip()
+
+    carts = AbandonedCart.objects.all()
+
+    if cart_status in ("active", "converted", "expired"):
+        carts = carts.filter(status=cart_status)
+
+    if search:
+        carts = carts.filter(customer_email__icontains=search) | \
+                carts.filter(customer_name__icontains=search)
+
+    serializer = AbandonedCartAdminSerializer(carts, many=True)
+    return Response(serializer.data)
+
+
+# ─── 4. ADMIN DETAIL (admin only) ────────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_abandoned_cart_detail(request, pk):
+    """Returns full details of a single abandoned cart."""
+    try:
+        cart = AbandonedCart.objects.get(pk=pk)
+    except AbandonedCart.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = AbandonedCartAdminSerializer(cart)
+    return Response(serializer.data)
+# ============================================================
+# CHANGES TO core/views.py
+# ============================================================
+
+# ── CHANGE 1: Update revolut_webhook to trigger coupon generation ────────────
+#
+# Find this block in your revolut_webhook view:
+#
+#   if event_type == "ORDER_COMPLETED":
+#       order.payment_status = "PAID"
+#       order.status = "PROCESSED"
+#   elif order_data.get("state") == "completed":
+#       order.payment_status = "PAID"
+#       order.status = "PROCESSED"
+#
+# REPLACE both "PAID" blocks with this:
+#
+#   if event_type == "ORDER_COMPLETED":
+#       order.payment_status = "PAID"
+#       order.status = "PROCESSED"
+#       order.save()
+#       # ✅ Auto-generate reward coupon
+#       from .coupon_service import generate_coupon_for_order
+#       generate_coupon_for_order(order)
+#       return Response({"detail": "ok"}, status=status.HTTP_200_OK)
+#
+#   elif order_data.get("state") == "completed":
+#       order.payment_status = "PAID"
+#       order.status = "PROCESSED"
+#       order.save()
+#       # ✅ Auto-generate reward coupon
+#       from .coupon_service import generate_coupon_for_order
+#       generate_coupon_for_order(order)
+#       return Response({"detail": "ok"}, status=status.HTTP_200_OK)
+#
+# ── CHANGE 2: Update verify_revolut_payment to trigger coupon generation ─────
+#
+# Find this block in verify_revolut_payment:
+#
+#   if state == "COMPLETED":
+#       order.payment_status = "PAID"
+#       order.status = "PROCESSED"
+#
+# REPLACE with:
+#
+#   if state == "COMPLETED":
+#       order.payment_status = "PAID"
+#       order.status = "PROCESSED"
+#       order.save()
+#       # ✅ Auto-generate reward coupon
+#       from .coupon_service import generate_coupon_for_order
+#       generate_coupon_for_order(order)
+
+
+# ── NEW ENDPOINTS TO ADD AT THE BOTTOM OF views.py ───────────────────────────
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+from django.utils import timezone
+from .models import UserCoupon
+from .serializers import UserCouponSerializer
+
+
+# ── 1. List user's own coupons (for profile / order confirmation page) ────────
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_coupons(request):
+    """
+    Returns all coupons for the logged-in user.
+    Frontend uses this to show available reward coupons.
+    """
+    # Auto-expire stale coupons
+    now = timezone.now()
+    UserCoupon.objects.filter(
+        user=request.user,
+        is_used=False,
+        expires_at__lt=now
+    ).update(is_used=False)  # They'll show as expired via is_expired property
+
+    coupons = UserCoupon.objects.filter(
+        user=request.user
+    ).select_related("promo_code").order_by("-created_at")
+
+    serializer = UserCouponSerializer(coupons, many=True)
+    return Response(serializer.data)
+
+
+# ── 2. Admin: list all user coupons ──────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_user_coupons(request):
+    """Admin view of all generated reward coupons."""
+    coupons = UserCoupon.objects.select_related(
+        "user", "promo_code", "source_order"
+    ).order_by("-created_at")
+
+    # Optional filter by user email
+    email = request.query_params.get("email", "").strip()
+    if email:
+        coupons = coupons.filter(user__email__icontains=email)
+
+    serializer = UserCouponSerializer(coupons, many=True)
+    return Response(serializer.data)
+
+# ============================================================
+# ADD TO core/views.py (at the bottom)
+# ============================================================
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Q, Count, Sum
+from .models import User, Order, Address
+from .serializers import CustomerQuickSearchSerializer
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def customer_quick_search(request):
+    """
+    Admin quick search for customers.
+    Query param: ?q=<search term>
+    Searches by name, email, or phone.
+    Returns customer info + order summary.
+    """
+    query = request.query_params.get("q", "").strip()
+
+    if not query or len(query) < 2:
+        return Response(
+            {"error": "Please enter at least 2 characters to search."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Search across name, email, phone
+    users = User.objects.filter(
+        Q(full_name__icontains=query) |
+        Q(email__icontains=query) |
+        Q(phone__icontains=query)
+    ).annotate(
+        total_orders=Count("orders"),
+        total_spent=Sum(
+            "orders__total_amount",
+            filter=Q(orders__payment_status="PAID")
+        ),
+    ).order_by("-created_at")[:20]  # Limit to 20 results
+
+    serializer = CustomerQuickSearchSerializer(users, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def customer_detail(request, user_id):
+    """
+    Returns full customer profile + all orders + saved addresses.
+    """
+    try:
+        user = User.objects.annotate(
+            total_orders=Count("orders"),
+            total_spent=Sum(
+                "orders__total_amount",
+                filter=Q(orders__payment_status="PAID")
+            ),
+        ).get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {"error": "Customer not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    orders = Order.objects.filter(user=user).order_by("-created_at")
+    addresses = Address.objects.filter(user=user)
+
+    from .serializers import CustomerDetailSerializer, OrderSummarySerializer, AddressSerializer
+    return Response({
+        "customer":  CustomerDetailSerializer(user).data,
+        "orders":    OrderSummarySerializer(orders, many=True).data,
+        "addresses": AddressSerializer(addresses, many=True).data,
+    })
+# ============================================================
+# ADD TO BOTTOM OF core/views.py
+# ============================================================
+
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Policy
+from .serializers import PolicySerializer
+
+
+# ── 1. PUBLIC: Get a single policy by type ───────────────────────────────────
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def get_policy(request, policy_type):
+    """
+    Public endpoint — returns the current policy content.
+    policy_type: 'terms' or 'delivery'
+    """
+    if policy_type not in ("terms", "delivery"):
+        return Response(
+            {"error": "Invalid policy type. Use 'terms' or 'delivery'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        policy = Policy.objects.get(policy_type=policy_type)
+    except Policy.DoesNotExist:
+        return Response(
+            {"error": f"No {policy_type} policy found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = PolicySerializer(policy)
+    return Response(serializer.data)
+
+
+# ── 2. PUBLIC: List all policies ─────────────────────────────────────────────
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def list_policies(request):
+    """Returns all available policies (terms + delivery)."""
+    policies   = Policy.objects.all()
+    serializer = PolicySerializer(policies, many=True)
+    return Response(serializer.data)
+
+
+# ── 3. ADMIN: Create or update a policy ──────────────────────────────────────
+
+@api_view(["PUT"])
+@permission_classes([IsAdminUser])
+def update_policy(request, policy_type):
+    """
+    Admin endpoint — create or update a policy.
+    policy_type: 'terms' or 'delivery'
+    Body: { title, content }
+    """
+    if policy_type not in ("terms", "delivery"):
+        return Response(
+            {"error": "Invalid policy type. Use 'terms' or 'delivery'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    policy, created = Policy.objects.get_or_create(
+        policy_type=policy_type,
+        defaults={"title": "", "content": ""},
+    )
+
+    serializer = PolicySerializer(policy, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save(updated_by=request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

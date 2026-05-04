@@ -687,3 +687,182 @@ class OrderItem(models.Model):
         max_digits=10,
         decimal_places=2
     )
+    
+# ============================================================
+# ADD THIS TO YOUR EXISTING models.py (at the bottom)
+# ============================================================
+
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+
+
+class AbandonedCart(models.Model):
+    """
+    Tracks carts where customers added items but did not complete checkout.
+    Created/updated whenever the cart changes on the frontend.
+    Marked as 'converted' when an order is successfully placed.
+    """
+
+    STATUS_CHOICES = [
+        ("active",    "Active"),       # Cart has items, no order placed
+        ("converted", "Converted"),    # Customer completed checkout
+        ("expired",   "Expired"),      # No activity for 7+ days
+    ]
+
+    # User — nullable so guest carts can be tracked too
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="abandoned_carts",
+    )
+
+    # Customer info (denormalised for quick admin view)
+    customer_name  = models.CharField(max_length=150, blank=True)
+    customer_email = models.EmailField(blank=True)
+    customer_phone = models.CharField(max_length=20, blank=True)
+
+    # Cart contents stored as JSON
+    # e.g. [{"id": "1", "name": "Basmati Rice", "price": 5.99, "quantity": 2}]
+    items = models.JSONField(default=list)
+
+    # Totals
+    total_items  = models.PositiveIntegerField(default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+
+    # Timestamps
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)       # refreshed on every cart sync
+    converted_at  = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["status", "-updated_at"]),
+            models.Index(fields=["user", "status"]),
+        ]
+        verbose_name        = "Abandoned Cart"
+        verbose_name_plural = "Abandoned Carts"
+
+    def __str__(self):
+        label = self.customer_email or (self.user.email if self.user else "Guest")
+        return f"{label} — €{self.total_amount} ({self.status})"
+
+    @property
+    def is_stale(self):
+        """Returns True if cart has been idle for more than 7 days."""
+        return (timezone.now() - self.updated_at).days >= 7
+      
+# ============================================================
+# ADD THIS TO THE BOTTOM OF core/models.py
+# ============================================================
+
+import uuid
+import random
+import string
+from decimal import Decimal
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+
+
+class UserCoupon(models.Model):
+    """
+    Auto-generated coupon tied to a specific user.
+    Created automatically when an order is marked PAID.
+    One coupon per qualifying order — valid for next purchase only.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="coupons",
+    )
+
+    # Link back to the PromoCode that was created
+    promo_code = models.OneToOneField(
+        "PromoCode",
+        on_delete=models.CASCADE,
+        related_name="user_coupon",
+    )
+
+    # The order that triggered this coupon
+    source_order = models.ForeignKey(
+        "Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_coupons",
+    )
+
+    # The order this coupon was redeemed on (null = not used yet)
+    redeemed_on_order = models.ForeignKey(
+        "Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="redeemed_coupons",
+    )
+
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    is_used         = models.BooleanField(default=False)
+    expires_at      = models.DateTimeField()
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name        = "User Coupon"
+        verbose_name_plural = "User Coupons"
+
+    def __str__(self):
+        return f"{self.user.email} — €{self.discount_amount} ({self.promo_code.code})"
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    @property
+    def is_valid(self):
+        return not self.is_used and not self.is_expired
+      
+# ============================================================
+# ADD TO BOTTOM OF core/models.py
+# ============================================================
+
+from django.db import models
+
+
+class Policy(models.Model):
+    POLICY_TYPES = [
+        ("terms",    "Terms & Conditions"),
+        ("delivery", "Delivery Policy"),
+    ]
+
+    policy_type = models.CharField(
+        max_length=20,
+        choices=POLICY_TYPES,
+        unique=True,   # Only one active record per type
+    )
+
+    title   = models.CharField(max_length=200)
+    content = models.TextField(help_text="Supports HTML formatting")
+
+    last_updated = models.DateTimeField(auto_now=True)
+    updated_by   = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="policy_updates",
+    )
+
+    class Meta:
+        verbose_name        = "Policy"
+        verbose_name_plural = "Policies"
+        ordering            = ["policy_type"]
+
+    def __str__(self):
+        return f"{self.get_policy_type_display()} (last updated {self.last_updated.strftime('%d %b %Y')})"

@@ -1,98 +1,100 @@
-# utils.py
+# ============================================================
+# utils.py — Asian Basket
+# Delivery fee calculation (server-side verification)
+# Mirrors deliveryUtils.ts exactly to prevent tampering
+# ============================================================
 
-def is_outside_dublin(city: str) -> bool:
-    if not city:
-        return True
-    return city.strip().lower() != "dublin"
+FREE_DELIVERY_THRESHOLD = 40.00    # €40+ = free (Dublin only)
+BELOW_THRESHOLD_FEE     = 4.99     # Below €40 delivery charge
+OUTSIDE_DUBLIN_FEE      = 6.99     # Outside Dublin flat charge
+RICE_BAG_FEE            = 1.00     # Per 20kg rice bag
+OVERWEIGHT_THRESHOLD    = 28       # kg
+OVERWEIGHT_FEE          = 6.99
+
+
+def count_20kg_rice_bags(items: list) -> int:
+    """
+    Count 20kg rice bags in the cart.
+    Matches frontend: category contains 'rice' AND weight >= 20kg.
+    """
+    count = 0
+    for item in items:
+        category = item.get("category", "").lower()
+        weight   = float(item.get("weight", 0))
+        quantity = int(item.get("quantity", 1))
+        if "rice" in category and weight >= 20:
+            count += quantity
+    return count
 
 
 def calculate_total_weight(items: list) -> float:
     total = 0.0
     for item in items:
-        weight = float(item.get("weight", 0))
+        weight   = float(item.get("weight", 0))
         quantity = int(item.get("quantity", 1))
-        total += weight * quantity
-    return total
+        total   += weight * quantity
+    return round(total, 3)
 
 
-def is_rice_or_atta_only_order(items: list) -> bool:
-    if not items:
-        return False
-    return all(
-        "rice" in item.get("category", "").lower() or
-        "atta" in item.get("category", "").lower()
-        for item in items
-    )
+def calculate_delivery_fee(items: list, delivery_area: str, subtotal: float) -> dict:
+    """
+    Calculate delivery fee based on area selection and cart contents.
 
+    Args:
+        items:         list of cart items (each with name, price, quantity, weight, category)
+        delivery_area: "dublin" or "outside_dublin"
+        subtotal:      cart subtotal before delivery
 
-def count_20kg_atta(items: list) -> int:
-    atta_weight = 0.0
-    for item in items:
-        if "atta" in item.get("category", "").lower():
-            atta_weight += float(item.get("weight", 0)) * int(item.get("quantity", 1))
-    return int(atta_weight // 20)
+    Returns:
+        dict with fee breakdown and total
+    """
+    messages       = []
+    outside_dublin = delivery_area == "outside_dublin"
+    total_weight   = calculate_total_weight(items)
+    rice_bag_count = count_20kg_rice_bags(items)
 
-
-def calculate_delivery_fee(items: list, city: str, subtotal: float) -> dict:
-    messages = []
-
-    outside_dublin = is_outside_dublin(city)
-    total_weight = calculate_total_weight(items)
-    rice_atta_only = is_rice_or_atta_only_order(items)
-    atta_20kg_count = count_20kg_atta(items)
-
-    base_fee = 0.0
-    rice_atta_only_fee = 0.0
-    heavy_atta_fee = 0.0
+    base_fee          = 0.0
     outside_dublin_fee = 0.0
-    overweight_fee = 0.0
+    rice_bag_fee      = 0.0
+    overweight_fee    = 0.0
 
-    # 1. OUTSIDE DUBLIN
+    # ── 1. Area-based base fee ────────────────────────────────────────────
     if outside_dublin:
-        outside_dublin_fee = 6.99
-        messages.append("€6.99 delivery charge (Outside Dublin)")
-
+        outside_dublin_fee = OUTSIDE_DUBLIN_FEE
+        messages.append(f"€{OUTSIDE_DUBLIN_FEE:.2f} delivery charge (Outside Dublin)")
     else:
-        # 2. FREE DELIVERY
-        if subtotal >= 39.99:
+        if subtotal >= FREE_DELIVERY_THRESHOLD:
             base_fee = 0.0
-            messages.append("Free delivery (Order ≥ €39.99)")
+            messages.append(f"Free delivery (Order ≥ €{FREE_DELIVERY_THRESHOLD:.2f})")
         else:
-            base_fee = 5.99
-            messages.append("€5.99 standard delivery")
+            base_fee = BELOW_THRESHOLD_FEE
+            messages.append(f"€{BELOW_THRESHOLD_FEE:.2f} delivery (Order below €{FREE_DELIVERY_THRESHOLD:.2f})")
 
-        # 3. RICE & ATTA ONLY RULE
-        if rice_atta_only:
-            base_fee = 0.0
-            rice_atta_only_fee = 3.0
-            messages.append("€3 delivery (Rice/Atta only order)")
-
-    # 4. ATTA HANDLING FEE
-    if atta_20kg_count > 0:
-        heavy_atta_fee = float(atta_20kg_count) * 1.0
-        messages.append(f"€{heavy_atta_fee:.2f} handling fee (Atta ≥ 20kg)")
-
-    # 5. OVERWEIGHT FEE (>28kg)
-    if total_weight > 28:
-        overweight_fee = 6.99
+    # ── 2. 20kg rice bag surcharge ────────────────────────────────────────
+    if rice_bag_count > 0:
+        rice_bag_fee = rice_bag_count * RICE_BAG_FEE
         messages.append(
-            f"€6.99 extra packaging (Weight {total_weight:.2f}kg exceeds 28kg)"
+            f"€{rice_bag_fee:.2f} handling fee "
+            f"({rice_bag_count} × 20kg rice bag{'s' if rice_bag_count > 1 else ''})"
         )
 
-    total = round(
-        base_fee + rice_atta_only_fee + heavy_atta_fee +
-        outside_dublin_fee + overweight_fee,
-        2
-    )
+    # ── 3. Overweight surcharge ───────────────────────────────────────────
+    if total_weight > OVERWEIGHT_THRESHOLD:
+        overweight_fee = OVERWEIGHT_FEE
+        messages.append(
+            f"€{OVERWEIGHT_FEE:.2f} extra packaging "
+            f"(Weight {total_weight:.2f}kg exceeds {OVERWEIGHT_THRESHOLD}kg)"
+        )
+
+    total = round(base_fee + outside_dublin_fee + rice_bag_fee + overweight_fee, 2)
 
     return {
-        "base_fee": base_fee,
-        "rice_atta_only_fee": rice_atta_only_fee,
-        "heavy_atta_fee": heavy_atta_fee,
+        "base_fee":           base_fee,
+        "rice_bag_fee":       rice_bag_fee,
         "outside_dublin_fee": outside_dublin_fee,
-        "overweight_fee": overweight_fee,
-        "total": total,
-        "total_weight": total_weight,
-        "is_outside_dublin": outside_dublin,
-        "messages": messages,
+        "overweight_fee":     overweight_fee,
+        "total":              total,
+        "total_weight":       total_weight,
+        "is_outside_dublin":  outside_dublin,
+        "messages":           messages,
     }

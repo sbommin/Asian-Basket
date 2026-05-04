@@ -430,3 +430,217 @@ class AddressSerializer(serializers.ModelSerializer):
             Address.objects.filter(user=instance.user).exclude(pk=instance.pk).update(is_default=False)
 
         return instance
+      
+# ============================================================
+# ADD THESE TO YOUR EXISTING serializers.py (at the bottom)
+# ============================================================
+
+from rest_framework import serializers
+from .models import AbandonedCart
+
+
+class AbandonedCartItemSerializer(serializers.Serializer):
+    """Validates each item in the cart items array."""
+    id       = serializers.CharField()
+    name     = serializers.CharField()
+    price    = serializers.FloatField()
+    quantity = serializers.IntegerField(min_value=1)
+    image    = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(required=False, allow_blank=True)
+
+
+class AbandonedCartSyncSerializer(serializers.Serializer):
+    """
+    Received from frontend on every cart change.
+    Creates or updates the AbandonedCart record for this user.
+    """
+    items        = AbandonedCartItemSerializer(many=True)
+    total_items  = serializers.IntegerField(min_value=0)
+    total_amount = serializers.FloatField(min_value=0)
+
+
+class AbandonedCartAdminSerializer(serializers.ModelSerializer):
+    """Used by the admin list endpoint."""
+    status_display   = serializers.CharField(source="get_status_display", read_only=True)
+    is_stale         = serializers.BooleanField(read_only=True)
+    idle_hours       = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = AbandonedCart
+        fields = [
+            "id",
+            "customer_name",
+            "customer_email",
+            "customer_phone",
+            "items",
+            "total_items",
+            "total_amount",
+            "status",
+            "status_display",
+            "is_stale",
+            "idle_hours",
+            "created_at",
+            "updated_at",
+            "converted_at",
+        ]
+
+    def get_idle_hours(self, obj):
+        from django.utils import timezone
+        delta = timezone.now() - obj.updated_at
+        return round(delta.total_seconds() / 3600, 1)
+
+
+# ============================================================
+# ADD THESE TO THE BOTTOM OF core/serializers.py
+# ============================================================
+
+from rest_framework import serializers
+from django.utils import timezone
+from .models import UserCoupon
+
+
+class UserCouponSerializer(serializers.ModelSerializer):
+    code           = serializers.CharField(source="promo_code.code",           read_only=True)
+    discount_value = serializers.DecimalField(source="promo_code.discount_value",
+                                               max_digits=10, decimal_places=2, read_only=True)
+    valid_to       = serializers.DateTimeField(source="promo_code.valid_to",    read_only=True)
+    is_expired     = serializers.BooleanField(read_only=True)
+    is_valid       = serializers.BooleanField(read_only=True)
+    source_order_id = serializers.CharField(source="source_order.order_id",    read_only=True)
+
+    # For admin view
+    user_email     = serializers.EmailField(source="user.email",               read_only=True)
+    user_name      = serializers.CharField(source="user.full_name",            read_only=True)
+
+    class Meta:
+        model  = UserCoupon
+        fields = [
+            "id",
+            "code",
+            "discount_amount",
+            "discount_value",
+            "is_used",
+            "is_expired",
+            "is_valid",
+            "expires_at",
+            "valid_to",
+            "source_order_id",
+            "created_at",
+            # Admin fields
+            "user_email",
+            "user_name",
+        ]
+# ============================================================
+# ADD TO core/serializers.py (at the bottom)
+# ============================================================
+
+from rest_framework import serializers
+from .models import User, Order
+
+
+class CustomerQuickSearchSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for search results list."""
+    total_orders = serializers.IntegerField(read_only=True)
+    total_spent  = serializers.DecimalField(
+        max_digits=10, decimal_places=2,
+        read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model  = User
+        fields = [
+            "id",
+            "full_name",
+            "email",
+            "phone",
+            "is_active",
+            "created_at",
+            "total_orders",
+            "total_spent",
+        ]
+
+
+class CustomerDetailSerializer(serializers.ModelSerializer):
+    """Full customer profile for detail view."""
+    total_orders = serializers.IntegerField(read_only=True)
+    total_spent  = serializers.DecimalField(
+        max_digits=10, decimal_places=2,
+        read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model  = User
+        fields = [
+            "id",
+            "full_name",
+            "email",
+            "phone",
+            "is_active",
+            "created_at",
+            "total_orders",
+            "total_spent",
+        ]
+
+
+class OrderSummarySerializer(serializers.ModelSerializer):
+    """Order summary for customer detail view."""
+    items_count = serializers.SerializerMethodField()
+    items_preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Order
+        fields = [
+            "id",
+            "order_id",
+            "status",
+            "payment_status",
+            "total_amount",
+            "subtotal",
+            "discount",
+            "delivery_fee",
+            "name",
+            "phone",
+            "address",
+            "city",
+            "pincode",
+            "items_count",
+            "items_preview",
+            "created_at",
+        ]
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+    def get_items_preview(self, obj):
+        return [
+            {
+                "name":     item.product_name,
+                "quantity": item.quantity,
+                "price":    str(item.price),
+            }
+            for item in obj.items.all()[:5]  # First 5 items
+        ]
+# ============================================================
+# ADD TO BOTTOM OF core/serializers.py
+# ============================================================
+
+from rest_framework import serializers
+from .models import Policy
+
+
+class PolicySerializer(serializers.ModelSerializer):
+    policy_type_display = serializers.CharField(
+        source="get_policy_type_display", read_only=True
+    )
+
+    class Meta:
+        model  = Policy
+        fields = [
+            "id",
+            "policy_type",
+            "policy_type_display",
+            "title",
+            "content",
+            "last_updated",
+        ]
+        read_only_fields = ["id", "last_updated", "policy_type_display"]
