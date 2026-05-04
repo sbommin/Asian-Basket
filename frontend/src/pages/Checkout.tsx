@@ -551,8 +551,7 @@ const Checkout = () => {
                         </div>
                       )}
                     </div>
-                  )}
-                </CardContent>
+                  </CardContent>
               </Card>
 
               {/* ── PROMO CODE ───────────────────────────────────────── */}
