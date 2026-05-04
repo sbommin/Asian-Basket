@@ -14,6 +14,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import api from "@/lib/axios";
+import EircodeInput from "@/components/EircodeInput";
+import { EircodeResult } from "@/lib/eircodeUtils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,6 +107,13 @@ const Checkout = () => {
   const [promoNewTotal, setPromoNewTotal]           = useState<number | null>(null);
 
   const [isProcessing, setIsProcessing]           = useState(false);
+  const handleEircodeFilled = (result: EircodeResult) => {
+    if (result.street)  setValue("street",  result.street,  { shouldValidate: true });
+    if (result.city)    setValue("city",    result.city,    { shouldValidate: true });
+    if (result.state)   setValue("state",   result.state,   { shouldValidate: true });
+    if (result.zipCode) setValue("zipCode", result.zipCode, { shouldValidate: true });
+    if (result.country) setValue("country", result.country, { shouldValidate: true });
+  };
   const [deliveryBreakdown, setDeliveryBreakdown] = useState<DeliveryBreakdown | null>(null);
 
   const {
@@ -466,6 +475,20 @@ const Checkout = () => {
                   )}
 
                   {selectedAddressId === "manual" && (
+                    <div className="md:col-span-2">
+  		      <EircodeInput
+    			onAddressFilled={handleEircodeFilled}
+    			disabled={selectedAddressId !== "manual"}
+  		       />
+		    </div>
+
+		   <div className="md:col-span-2">
+  		     <div className="flex items-center gap-3">
+    			<div className="flex-1 h-px bg-border" />
+    			<span className="text-xs text-muted-foreground">or enter manually</span>
+    			<div className="flex-1 h-px bg-border" />
+  		     </div>
+		        </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6 bg-muted/20 rounded-2xl border-2 border-dashed border-border">
                       <div className="md:col-span-2 space-y-2">
                         <Label className="text-sm font-medium">Full Name *</Label>
