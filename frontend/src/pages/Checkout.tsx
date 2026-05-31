@@ -200,7 +200,7 @@ const Checkout = () => {
   }));
 
   useEffect(() => {
-    const breakdown = calculateDeliveryFee(cartItemsWithMeta, deliveryArea, totalPrice);
+    const breakdown = calculateDeliveryFee(cartItemsWithMeta, deliveryArea, "", totalPrice);
     setDeliveryBreakdown(breakdown);
   }, [deliveryArea, JSON.stringify(cartItems), totalPrice]);
 

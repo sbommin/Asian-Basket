@@ -525,6 +525,8 @@
  TYPES
 ===================================== */
 
+export type DeliveryArea = "dublin" | "outside_dublin";
+
 export interface CartItemWithMeta {
   id: string;
   name: string;
@@ -678,22 +680,22 @@ export function calculateDeliveryFee(
        2️⃣ FREE DELIVERY
     =============================== */
 
-    if (subtotal >= 39.99) {
+    if (subtotal >= 40) {
 
       baseFee = 0;
 
       messages.push(
-        "Free delivery (Order ≥ €39.99)"
+        "Free delivery (Order ≥ €40)"
       );
 
     }
 
     else {
 
-      baseFee = 5.99;
+      baseFee = 4.99;
 
       messages.push(
-        "€5.99 standard delivery"
+        "€4.99 delivery (Order below €40)"
       );
 
     }
