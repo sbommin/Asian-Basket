@@ -487,8 +487,6 @@ const Checkout = () => {
                         <span className="text-xs text-muted-foreground">or enter manually</span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
-                    </>
-                  )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6 bg-muted/20 rounded-2xl border-2 border-dashed border-border">
                       <div className="md:col-span-2 space-y-2">
                         <Label className="text-sm font-medium">Full Name *</Label>
@@ -550,6 +548,8 @@ const Checkout = () => {
                         </div>
                       )}
                     </div>
+                    </>
+                  )}
                   </CardContent>
               </Card>
 
