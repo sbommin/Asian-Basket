@@ -217,6 +217,8 @@ class ProductSerializer(serializers.ModelSerializer):
     # ✅ NEW — subcategory fields for frontend filtering
     subcategory      = serializers.CharField(source="subcategory.slug")
     subcategory_name = serializers.CharField(source="subcategory.name")
+    variants            = ProductVariantSerializer(many=True, read_only=True)
+    has_variants        = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -240,6 +242,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "subcategory_name",      # ✅ NEW
             "priority",
             "is_trending",           # ✅ NEW — used by TrendingSection
+            "variants",
+            "has_variants",
         ]
 
     def get_image(self, obj):
@@ -644,3 +648,67 @@ class PolicySerializer(serializers.ModelSerializer):
             "last_updated",
         ]
         read_only_fields = ["id", "last_updated", "policy_type_display"]
+# ============================================================
+# ADD TO BOTTOM OF core/serializers.py
+# ============================================================
+
+from rest_framework import serializers
+from .models import ProductVariant
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    final_stock_status = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model  = ProductVariant
+        fields = [
+            "id",
+            "label",
+            "weight_kg",
+            "price",
+            "mrp",
+            "in_stock",
+            "stock_quantity",
+            "final_stock_status",
+            "sort_order",
+        ]
+
+
+# ── Also update ProductSerializer to include variants ────────────────────────
+# Find your existing ProductSerializer class and ADD these two fields:
+#
+#   variants = ProductVariantSerializer(many=True, read_only=True)
+#   has_variants = serializers.SerializerMethodField()
+#
+# And add them to the fields list:
+#   "variants",
+#   "has_variants",
+#
+# And add this method:
+#   def get_has_variants(self, obj):
+#       return obj.variants.filter(is_active=True).exists()
+#
+# ── EXAMPLE of updated ProductSerializer ────────────────────────────────────
+#
+# class ProductSerializer(serializers.ModelSerializer):
+#     image               = serializers.SerializerMethodField()
+#     final_stock_status  = serializers.ReadOnlyField()
+#     price_per_kg        = serializers.ReadOnlyField()
+#     discount_percentage = serializers.ReadOnlyField()
+#     category            = serializers.CharField(source="category.slug")
+#     category_name       = serializers.CharField(source="category.name")
+#     subcategory         = serializers.CharField(source="subcategory.slug")
+#     subcategory_name    = serializers.CharField(source="subcategory.name")
+#     variants            = ProductVariantSerializer(many=True, read_only=True)   # ✅ ADD
+#     has_variants        = serializers.SerializerMethodField()                   # ✅ ADD
+#
+#     class Meta:
+#         model = Product
+#         fields = [
+#             ...existing fields...
+#             "variants",       # ✅ ADD
+#             "has_variants",   # ✅ ADD
+#         ]
+#
+#     def get_has_variants(self, obj):                                            # ✅ ADD
+#         return obj.variants.filter(is_active=True).exists()

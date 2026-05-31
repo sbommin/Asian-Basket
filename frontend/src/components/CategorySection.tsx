@@ -1,360 +1,3 @@
-// import { useRef, useState } from "react";
-// import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
-// import { Button } from "@/components/ui/button";
-// import { useCart } from "@/contexts/CartContext";
-// import { useToast } from "@/hooks/use-toast";
-// import { Link } from "react-router-dom";
-// import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-
-// /* ================================
-//    TYPES
-// ================================ */
-// interface WeightOption {
-//   weight: string;
-//   label: string;
-// }
-
-// interface Product {
-//   id: string;
-//   name: string;
-//   price: number;
-//   mrp?: number;
-//   image: string;
-//   category: string;
-
-//   // ✅ IMPORTANT — backend weight
-//   weight: number;
-
-//   final_stock_status: boolean;
-//   priority?: number;
-//   pricePerKg?: number;
-//   availableWeights?: WeightOption[];
-// }
-
-// interface CategorySectionProps {
-//   title: string;
-//   products: Product[];
-//   bgColor?: string;
-//   categorySlug: string;
-// }
-
-// /* ================================
-//    CURRENCY FORMATTER
-// ================================ */
-// const formatCurrency = (amount: number) => {
-//   return `€${amount.toFixed(2)}`;
-// };
-
-// const CategorySection = ({
-//   title,
-//   products,
-//   bgColor = "bg-white",
-//   categorySlug,
-// }: CategorySectionProps) => {
-
-//   const scrollRef = useRef<HTMLDivElement>(null);
-
-//   const { addToCart } = useCart();
-
-//   const { toast } = useToast();
-
-//   const [selectedWeights, setSelectedWeights] = useState<Record<string, string>>({});
-
-//   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
-
-//   /* ================================
-//      SORT PRODUCTS BY PRIORITY
-//   ================================ */
-//   const sortedProducts = [...products].sort((a, b) => {
-
-//     const pa = a.priority ?? 0;
-//     const pb = b.priority ?? 0;
-
-//     if (pa === 0 && pb === 0) return 0;
-//     if (pa === 0) return 1;
-//     if (pb === 0) return -1;
-
-//     return pa - pb;
-
-//   });
-
-//   /* ================================
-//      CALCULATE PRICE
-//   ================================ */
-//   const calculatePrice = (product: Product) => {
-
-//     if (!product.pricePerKg || !product.availableWeights)
-//       return product.price;
-
-//     const selectedWeight =
-//       selectedWeights[product.id] ||
-//       product.availableWeights[0]?.weight ||
-//       "1";
-
-//     return product.pricePerKg * parseFloat(selectedWeight);
-
-//   };
-
-//   /* ================================
-//      CALCULATE DISCOUNT
-//   ================================ */
-//   const calculateDiscount = (mrp?: number, price?: number) => {
-
-//     if (!mrp || !price || mrp <= price)
-//       return null;
-
-//     return Math.round(((mrp - price) / mrp) * 100);
-
-//   };
-
-//   /* ================================
-//      ADD TO CART — FIXED WEIGHT
-//   ================================ */
-//   const handleAddToCart = (product: Product) => {
-
-//     if (!product.final_stock_status)
-//       return;
-
-//     addToCart({
-
-//       id: product.id,
-
-//       name: product.name,
-
-//       image: product.image,
-
-//       category: product.category,
-
-//       price: calculatePrice(product),
-
-//       // ✅ CRITICAL FIX — PASS BACKEND WEIGHT
-//       weight: Number(product.weight),
-
-//     });
-
-//     toast({
-//       title: "Added to cart",
-//       description: `${product.name} added successfully`,
-//     });
-
-//   };
-
-//   /* ================================
-//      SCROLL FUNCTION
-//   ================================ */
-//   const scroll = (direction: "left" | "right") => {
-
-//     if (!scrollRef.current)
-//       return;
-
-//     const scrollAmount = scrollRef.current.clientWidth * 0.8;
-
-//     scrollRef.current.scrollBy({
-
-//       left: direction === "left"
-//         ? -scrollAmount
-//         : scrollAmount,
-
-//       behavior: "smooth",
-
-//     });
-
-//   };
-
-//   /* ================================
-//      UI
-//   ================================ */
-//   return (
-//     <>
-
-//       <section className={`py-12 ${bgColor}`}>
-
-//         <div className="container mx-auto px-4">
-
-//           {/* HEADER */}
-//           <div className="flex items-center justify-between mb-6">
-
-//             <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-//               {title}
-//             </h2>
-
-//             <div className="flex items-center gap-2">
-
-//               <Link
-//                 to={`/category/${categorySlug}`}
-//                 className="text-sm font-semibold text-primary hover:underline mr-2 hidden sm:block"
-//               >
-//                 View All
-//               </Link>
-
-//               <Button
-//                 variant="outline"
-//                 size="icon"
-//                 onClick={() => scroll("left")}
-//               >
-//                 <ChevronLeft className="h-4 w-4" />
-//               </Button>
-
-//               <Button
-//                 variant="outline"
-//                 size="icon"
-//                 onClick={() => scroll("right")}
-//               >
-//                 <ChevronRight className="h-4 w-4" />
-//               </Button>
-
-//             </div>
-
-//           </div>
-
-//           {/* PRODUCTS */}
-//           <div
-//             ref={scrollRef}
-//             className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 -mx-4 px-4 snap-x"
-//           >
-
-//             {sortedProducts.map((product) => {
-
-//               const discount =
-//                 calculateDiscount(product.mrp, product.price);
-
-//               return (
-
-//                 <div
-//                   key={product.id}
-//                   className={`min-w-[200px] w-[200px] md:min-w-[240px] md:w-[240px] snap-start bg-card rounded-xl border border-border p-3 transition-all group relative ${
-//                     product.final_stock_status
-//                       ? "hover:shadow-lg"
-//                       : "opacity-70"
-//                   }`}
-//                 >
-
-//                   {/* IMAGE */}
-//                   <div
-//                     className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-secondary/10 cursor-pointer"
-//                     onClick={() => setQuickViewProduct(product)}
-//                   >
-
-//                     <img
-//                       src={product.image}
-//                       alt={product.name}
-//                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-//                     />
-
-//                     {discount && (
-//                       <div className="absolute top-2 right-2 bg-red-600 text-white text-[11px] font-bold px-2 py-1 rounded-full">
-//                         {discount}% OFF
-//                       </div>
-//                     )}
-
-//                     {!product.final_stock_status && (
-//                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
-//                         <span className="bg-red-600 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-//                           OUT OF STOCK
-//                         </span>
-//                       </div>
-//                     )}
-
-//                   </div>
-
-//                   {/* NAME */}
-//                   <h3 className="font-semibold text-sm line-clamp-2 min-h-[40px]">
-//                     {product.name}
-//                   </h3>
-
-//                   {/* PRICE */}
-//                   <div className="mt-2">
-
-//                     {product.mrp && product.mrp > product.price && (
-//                       <div className="text-xs text-muted-foreground line-through">
-//                         {formatCurrency(product.mrp)}
-//                       </div>
-//                     )}
-
-//                     <div className="font-bold text-lg text-primary">
-//                       {formatCurrency(calculatePrice(product))}
-//                     </div>
-
-//                   </div>
-
-//                   {/* ADD BUTTON */}
-//                   <div className="flex justify-end mt-2">
-
-//                     <Button
-//                       size="icon"
-//                       disabled={!product.final_stock_status}
-//                       onClick={() => handleAddToCart(product)}
-//                       className={`h-9 w-9 rounded-full shadow-sm border ${
-//                         product.final_stock_status
-//                           ? "bg-secondary hover:bg-primary hover:text-white"
-//                           : "bg-muted cursor-not-allowed"
-//                       }`}
-//                     >
-//                       <Plus className="h-5 w-5" />
-//                     </Button>
-
-//                   </div>
-
-//                 </div>
-
-//               );
-
-//             })}
-
-//           </div>
-
-//         </div>
-
-//       </section>
-
-//       {/* QUICK VIEW */}
-//       <Dialog
-//         open={!!quickViewProduct}
-//         onOpenChange={() => setQuickViewProduct(null)}
-//       >
-
-//         <DialogContent className="max-w-3xl p-0 overflow-hidden">
-
-//           <DialogTitle className="sr-only">
-//             {quickViewProduct?.name}
-//           </DialogTitle>
-
-//           {quickViewProduct && (
-//             <>
-
-//               <Button
-//                 size="icon"
-//                 variant="ghost"
-//                 className="absolute top-2 right-2 z-10 bg-white/80"
-//                 onClick={() => setQuickViewProduct(null)}
-//               >
-//                 <X className="h-5 w-5" />
-//               </Button>
-
-//               <div className="w-full aspect-square bg-secondary/10">
-
-//                 <img
-//                   src={quickViewProduct.image}
-//                   alt={quickViewProduct.name}
-//                   className="w-full h-full object-contain bg-white"
-//                 />
-
-//               </div>
-
-//             </>
-//           )}
-
-//         </DialogContent>
-
-//       </Dialog>
-
-//     </>
-//   );
-
-// };
-
-// export default CategorySection;
-
 import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Eye, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -367,12 +10,18 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
-/* ================================
-   TYPES
-================================ */
-interface WeightOption {
-  weight: string;
-  label: string;
+/* ─── Types ──────────────────────────────────────────────────────────────── */
+
+interface ProductVariant {
+  id: number;
+  label: string;         // "250g", "500g", "1kg"
+  weight_kg: number;     // 0.25, 0.5, 1.0
+  price: string;         // "1.99"
+  mrp?: string;          // "2.49"
+  in_stock: boolean;
+  stock_quantity: number;
+  final_stock_status: boolean;
+  sort_order: number;
 }
 
 interface Product {
@@ -382,11 +31,17 @@ interface Product {
   mrp?: number;
   image: string;
   category: string;
-  weight: number;                    // ✅ backend weight
-  final_stock_status: boolean;       // ✅ backend stock
-  priority?: number;                 // ✅ backend priority
+  weight: number;
+  final_stock_status: boolean;
+  priority?: number;
+  description?: string;
+  price_per_kg?: number;
+  discount_percentage?: number;
+  has_variants?: boolean;
+  variants?: ProductVariant[];
+  // Legacy fields (kept for backward compatibility)
   pricePerKg?: number;
-  availableWeights?: WeightOption[];
+  availableWeights?: { weight: string; label: string }[];
 }
 
 interface CategorySectionProps {
@@ -396,14 +51,17 @@ interface CategorySectionProps {
   categorySlug: string;
 }
 
-/* ================================
-   CURRENCY FORMATTER
-================================ */
+/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+
 const formatCurrency = (amount: number) => `€${amount.toFixed(2)}`;
 
-/* ================================
-   COMPONENT
-================================ */
+const calculateDiscount = (mrp?: number, price?: number) => {
+  if (!mrp || !price || mrp <= price) return null;
+  return Math.round(((mrp - price) / mrp) * 100);
+};
+
+/* ─── Component ───────────────────────────────────────────────────────────── */
+
 const CategorySection = ({
   title,
   products,
@@ -413,12 +71,12 @@ const CategorySection = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart();
   const { toast } = useToast();
-  const [selectedWeights, setSelectedWeights] = useState<Record<string, string>>({});
+
+  // Track selected variant per product
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, number>>({});
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  /* ================================
-     SORT BY PRIORITY (V2)
-  ================================ */
+  /* ── Sort by priority ─────────────────────────────────────────────────── */
   const sortedProducts = [...products].sort((a, b) => {
     const pa = a.priority ?? 0;
     const pb = b.priority ?? 0;
@@ -428,78 +86,81 @@ const CategorySection = ({
     return pa - pb;
   });
 
-  /* ================================
-     WEIGHT CHANGE HANDLER (V1)
-  ================================ */
-  const handleWeightChange = (productId: string, weight: string) => {
-    setSelectedWeights((prev) => ({ ...prev, [productId]: weight }));
+  /* ── Get active variants for a product ───────────────────────────────── */
+  const getActiveVariants = (product: Product): ProductVariant[] => {
+    return (product.variants || []).filter((v) => v.final_stock_status || !v.in_stock);
   };
 
-  /* ================================
-     CALCULATE PRICE
-  ================================ */
-  const calculatePrice = (product: Product) => {
-    if (!product.pricePerKg || !product.availableWeights) return product.price;
-    const selectedWeight =
-      selectedWeights[product.id] || product.availableWeights[0]?.weight || "1";
-    return product.pricePerKg * parseFloat(selectedWeight);
+  /* ── Get selected variant ─────────────────────────────────────────────── */
+  const getSelectedVariant = (product: Product): ProductVariant | null => {
+    const variants = getActiveVariants(product);
+    if (!variants.length) return null;
+    const selectedId = selectedVariants[product.id];
+    return variants.find((v) => v.id === selectedId) || variants[0];
   };
 
-  /* ================================
-     CALCULATE DISCOUNT (V2)
-  ================================ */
-  const calculateDiscount = (mrp?: number, price?: number) => {
-    if (!mrp || !price || mrp <= price) return null;
-    return Math.round(((mrp - price) / mrp) * 100);
+  /* ── Get display price ────────────────────────────────────────────────── */
+  const getDisplayPrice = (product: Product): number => {
+    const variant = getSelectedVariant(product);
+    if (variant) return parseFloat(variant.price);
+    return product.price;
   };
 
-  /* ================================
-     ADD TO CART
-  ================================ */
+  /* ── Get display MRP ──────────────────────────────────────────────────── */
+  const getDisplayMrp = (product: Product): number | undefined => {
+    const variant = getSelectedVariant(product);
+    if (variant?.mrp) return parseFloat(variant.mrp);
+    return product.mrp;
+  };
+
+  /* ── Get stock status ─────────────────────────────────────────────────── */
+  const getStockStatus = (product: Product): boolean => {
+    const variant = getSelectedVariant(product);
+    if (variant) return variant.final_stock_status;
+    return product.final_stock_status;
+  };
+
+  /* ── Add to cart ──────────────────────────────────────────────────────── */
   const handleAddToCart = (product: Product) => {
-    if (!product.final_stock_status) return;
+    if (!getStockStatus(product)) return;
 
-    const selectedWeight = selectedWeights[product.id];
-    const finalPrice = calculatePrice(product);
-    const weightLabel =
-      product.availableWeights?.find((w) => w.weight === selectedWeight)?.label || "";
+    const variant = getSelectedVariant(product);
+    const finalPrice = getDisplayPrice(product);
+    const variantLabel = variant?.label || "";
 
     addToCart({
-      id: product.id,
-      name: weightLabel ? `${product.name} - ${weightLabel}` : product.name,
+      id: variant ? `${product.id}-${variant.id}` : product.id,
+      name: variantLabel ? `${product.name} - ${variantLabel}` : product.name,
       image: product.image,
       category: product.category,
       price: finalPrice,
-      weight: Number(product.weight),  // ✅ backend weight
+      weight: variant ? variant.weight_kg : Number(product.weight),
     });
 
     toast({
-      title: "Added to cart",
-      description: `${product.name}${weightLabel ? ` (${weightLabel})` : ""} added successfully`,
+      title: "Added to cart ✓",
+      description: `${product.name}${variantLabel ? ` (${variantLabel})` : ""} added successfully`,
     });
   };
 
-  /* ================================
-     SCROLL
-  ================================ */
+  /* ── Scroll ───────────────────────────────────────────────────────────── */
   const scroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return;
-    const scrollAmount = scrollRef.current.clientWidth * 0.8;
     scrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
+      left: direction === "left"
+        ? -scrollRef.current.clientWidth * 0.8
+        : scrollRef.current.clientWidth * 0.8,
       behavior: "smooth",
     });
   };
 
-  /* ================================
-     UI
-  ================================ */
+  /* ─── Render ─────────────────────────────────────────────────────────── */
   return (
     <>
       <section className={`py-12 ${bgColor}`}>
         <div className="container mx-auto px-4">
 
-          {/* ── HEADER ── */}
+          {/* ── Header ───────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
               {title}
@@ -511,42 +172,41 @@ const CategorySection = ({
               >
                 View All
               </Link>
-              {/* ✅ V1 rounded scroll buttons */}
-              <Button
-                variant="outline"
-                size="icon"
+              <Button variant="outline" size="icon"
                 className="h-8 w-8 rounded-full border-primary/20 hover:bg-primary hover:text-white transition-colors"
-                onClick={() => scroll("left")}
-              >
+                onClick={() => scroll("left")}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
+              <Button variant="outline" size="icon"
                 className="h-8 w-8 rounded-full border-primary/20 hover:bg-primary hover:text-white transition-colors"
-                onClick={() => scroll("right")}
-              >
+                onClick={() => scroll("right")}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* ── PRODUCT CARDS ── */}
+          {/* ── Product Cards ─────────────────────────────────────────────── */}
           <div
             ref={scrollRef}
             className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 -mx-4 px-4 snap-x"
           >
             {sortedProducts.map((product) => {
-              const discount = calculateDiscount(product.mrp, product.price);
+              const activeVariants = getActiveVariants(product);
+              const hasVariants    = activeVariants.length > 0;
+              const selectedVariant = getSelectedVariant(product);
+              const displayPrice   = getDisplayPrice(product);
+              const displayMrp     = getDisplayMrp(product);
+              const inStock        = getStockStatus(product);
+              const discount       = calculateDiscount(displayMrp, displayPrice);
 
               return (
                 <div
                   key={product.id}
                   className={`min-w-[200px] w-[200px] md:min-w-[240px] md:w-[240px] snap-start bg-card rounded-xl border border-border p-3 transition-all group relative ${
-                    product.final_stock_status ? "hover:shadow-lg" : "opacity-70"
+                    inStock ? "hover:shadow-lg" : "opacity-70"
                   }`}
                 >
-                  {/* ── IMAGE ── */}
+                  {/* ── Image ─────────────────────────────────────────────── */}
                   <div
                     className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-secondary/10 cursor-pointer"
                     onClick={() => setQuickViewProduct(product)}
@@ -554,43 +214,34 @@ const CategorySection = ({
                     <img
                       src={product.image}
                       alt={product.name}
-                      title={product.name}
-                      //crossOrigin="anonymous"      // ✅ V1
-                      loading="lazy"               // ✅ V1
-                      onError={(e) => {            // ✅ V1 fallback
-                        const target = e.target as HTMLImageElement;
-                        target.src =
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
                           "https://placehold.co/400x400/6B9B5A/white?text=Product+Image";
                       }}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                     />
 
-                    {/* ✅ V1 Quick View Eye overlay on hover */}
-                    {product.final_stock_status && (
+                    {/* Quick view overlay */}
+                    {inStock && (
                       <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          size="icon"
-                          variant="secondary"
+                        <Button size="icon" variant="secondary"
                           className="h-8 w-8 rounded-full shadow-md bg-white hover:bg-white text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setQuickViewProduct(product);
-                          }}
-                        >
+                          onClick={(e) => { e.stopPropagation(); setQuickViewProduct(product); }}>
                           <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     )}
 
-                    {/* ✅ V2 Discount badge — top right */}
+                    {/* Discount badge */}
                     {discount && (
                       <div className="absolute top-2 right-2 bg-red-600 text-white text-[11px] font-bold px-2 py-1 rounded-full">
                         {discount}% OFF
                       </div>
                     )}
 
-                    {/* ✅ V2 Out of stock overlay */}
-                    {!product.final_stock_status && (
+                    {/* Out of stock overlay */}
+                    {!inStock && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
                         <span className="bg-red-600 text-white text-[11px] font-bold px-3 py-1 rounded-full">
                           OUT OF STOCK
@@ -599,78 +250,68 @@ const CategorySection = ({
                     )}
                   </div>
 
-                  {/* ── PRODUCT INFO ── */}
+                  {/* ── Product Info ───────────────────────────────────────── */}
                   <div className="space-y-2">
-                    <h3
-                      className="font-semibold text-sm line-clamp-2 min-h-[40px]"
-                      title={product.name}
-                    >
+                    <h3 className="font-semibold text-sm line-clamp-2 min-h-[40px]" title={product.name}>
                       {product.name}
                     </h3>
 
-                    {/* ✅ V1 Weight Selector */}
-                    {product.availableWeights && product.availableWeights.length > 0 && (
+                    {/* ✅ Variant Selector — shows if product has variants */}
+                    {hasVariants && (
                       <Select
-                        value={
-                          selectedWeights[product.id] ||
-                          product.availableWeights[0].weight
-                        }
-                        onValueChange={(value) =>
-                          handleWeightChange(product.id, value)
+                        value={String(selectedVariant?.id || activeVariants[0]?.id)}
+                        onValueChange={(val) =>
+                          setSelectedVariants((prev) => ({
+                            ...prev,
+                            [product.id]: Number(val),
+                          }))
                         }
                       >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="h-8 text-xs border-primary/30">
+                          <SelectValue placeholder="Select size" />
                         </SelectTrigger>
                         <SelectContent>
-                          {product.availableWeights.map((option) => (
+                          {activeVariants.map((variant) => (
                             <SelectItem
-                              key={option.weight}
-                              value={option.weight}
+                              key={variant.id}
+                              value={String(variant.id)}
                               className="text-xs"
+                              disabled={!variant.final_stock_status}
                             >
-                              {option.label}
+                              {variant.label}
+                              {!variant.final_stock_status && " (Out of stock)"}
+                              {" — "}
+                              {formatCurrency(parseFloat(variant.price))}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     )}
 
-                    {/* ── PRICE + ADD BUTTON ── */}
+                    {/* ── Price + Add Button ─────────────────────────────── */}
                     <div className="flex items-center justify-between mt-2">
                       <div>
-                        {/* ✅ V1 per-kg price label */}
-                        {product.pricePerKg ? (
-                          <>
-                            <div className="text-xs text-muted-foreground mb-0.5">
-                              {formatCurrency(product.pricePerKg)}/kg
-                            </div>
-                            <div className="font-bold text-lg text-primary">
-                              {formatCurrency(calculatePrice(product))}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            {/* ✅ V2 MRP strikethrough */}
-                            {product.mrp && product.mrp > product.price && (
-                              <div className="text-xs text-muted-foreground line-through">
-                                {formatCurrency(product.mrp)}
-                              </div>
-                            )}
-                            <div className="font-bold text-lg text-primary">
-                              {formatCurrency(calculatePrice(product))}
-                            </div>
-                          </>
+                        {displayMrp && displayMrp > displayPrice && (
+                          <div className="text-xs text-muted-foreground line-through">
+                            {formatCurrency(displayMrp)}
+                          </div>
+                        )}
+                        <div className="font-bold text-lg text-primary">
+                          {formatCurrency(displayPrice)}
+                        </div>
+                        {product.price_per_kg && !hasVariants && (
+                          <div className="text-xs text-muted-foreground">
+                            {formatCurrency(product.price_per_kg)}/kg
+                          </div>
                         )}
                       </div>
 
-                      {/* ✅ V1 Add button style */}
                       <Button
                         size="icon"
-                        disabled={!product.final_stock_status}
+                        disabled={!inStock}
                         onClick={() => handleAddToCart(product)}
                         className={`h-9 w-9 rounded-full shadow-sm transition-colors border border-primary/10 ${
-                          product.final_stock_status
+                          inStock
                             ? "bg-secondary text-secondary-foreground hover:bg-primary hover:text-white"
                             : "bg-muted cursor-not-allowed"
                         }`}
@@ -686,72 +327,105 @@ const CategorySection = ({
         </div>
       </section>
 
-      {/* ── QUICK VIEW MODAL ── */}
-      <Dialog
-        open={!!quickViewProduct}
-        onOpenChange={(open) => !open && setQuickViewProduct(null)}
-      >
+      {/* ── Quick View Modal ───────────────────────────────────────────────── */}
+      <Dialog open={!!quickViewProduct} onOpenChange={(open) => !open && setQuickViewProduct(null)}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden">
           <DialogTitle className="sr-only">
             {quickViewProduct?.name || "Product Quick View"}
           </DialogTitle>
 
-          {quickViewProduct && (
-            <div className="relative">
-              {/* ✅ V1 Close button */}
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-2 right-2 z-10 bg-white/80 hover:bg-white rounded-full"
-                onClick={() => setQuickViewProduct(null)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
+          {quickViewProduct && (() => {
+            const qvVariants      = getActiveVariants(quickViewProduct);
+            const qvHasVariants   = qvVariants.length > 0;
+            const qvSelectedVariant = getSelectedVariant(quickViewProduct);
+            const qvPrice         = getDisplayPrice(quickViewProduct);
+            const qvMrp           = getDisplayMrp(quickViewProduct);
+            const qvInStock       = getStockStatus(quickViewProduct);
 
-              {/* ✅ V1 Large image */}
-              <div className="w-full aspect-square max-h-[70vh] bg-secondary/10">
-                <img
-                  src={quickViewProduct.image}
-                  alt={quickViewProduct.name}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src =
-                      "https://placehold.co/800x800/6B9B5A/white?text=Product+Image";
-                  }}
-                />
-              </div>
-
-              {/* ✅ V1 Product info panel below image */}
-              <div className="p-6 bg-white">
-                <h2 className="text-xl font-bold mb-2">
-                  {quickViewProduct.name}
-                </h2>
-                {quickViewProduct.mrp &&
-                  quickViewProduct.mrp > quickViewProduct.price && (
-                    <p className="text-sm text-muted-foreground line-through mb-1">
-                      {formatCurrency(quickViewProduct.mrp)}
-                    </p>
-                  )}
-                <p className="text-2xl font-bold text-primary mb-4">
-                  {formatCurrency(calculatePrice(quickViewProduct))}
-                </p>
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90"
-                  disabled={!quickViewProduct.final_stock_status}
-                  onClick={() => {
-                    handleAddToCart(quickViewProduct);
-                    setQuickViewProduct(null);
-                  }}
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  {quickViewProduct.final_stock_status
-                    ? "Add to Cart"
-                    : "Out of Stock"}
+            return (
+              <div className="relative">
+                <Button size="icon" variant="ghost"
+                  className="absolute top-2 right-2 z-10 bg-white/80 hover:bg-white rounded-full"
+                  onClick={() => setQuickViewProduct(null)}>
+                  <X className="h-5 w-5" />
                 </Button>
+
+                <div className="w-full aspect-square max-h-[60vh] bg-secondary/10">
+                  <img
+                    src={quickViewProduct.image}
+                    alt={quickViewProduct.name}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://placehold.co/800x800/6B9B5A/white?text=Product+Image";
+                    }}
+                  />
+                </div>
+
+                <div className="p-6 bg-white space-y-4">
+                  <h2 className="text-xl font-bold">{quickViewProduct.name}</h2>
+
+                  {quickViewProduct.description && (
+                    <p className="text-sm text-muted-foreground">{quickViewProduct.description}</p>
+                  )}
+
+                  {/* Variant selector in quick view */}
+                  {qvHasVariants && (
+                    <Select
+                      value={String(qvSelectedVariant?.id || qvVariants[0]?.id)}
+                      onValueChange={(val) =>
+                        setSelectedVariants((prev) => ({
+                          ...prev,
+                          [quickViewProduct.id]: Number(val),
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {qvVariants.map((variant) => (
+                          <SelectItem
+                            key={variant.id}
+                            value={String(variant.id)}
+                            disabled={!variant.final_stock_status}
+                          >
+                            {variant.label}
+                            {!variant.final_stock_status && " (Out of stock)"}
+                            {" — "}
+                            {formatCurrency(parseFloat(variant.price))}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  <div>
+                    {qvMrp && qvMrp > qvPrice && (
+                      <p className="text-sm text-muted-foreground line-through">
+                        {formatCurrency(qvMrp)}
+                      </p>
+                    )}
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(qvPrice)}
+                    </p>
+                  </div>
+
+                  <Button
+                    className="w-full bg-primary hover:bg-primary/90"
+                    disabled={!qvInStock}
+                    onClick={() => {
+                      handleAddToCart(quickViewProduct);
+                      setQuickViewProduct(null);
+                    }}
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    {qvInStock ? "Add to Cart" : "Out of Stock"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </>

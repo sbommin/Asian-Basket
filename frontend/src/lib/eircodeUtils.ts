@@ -28,7 +28,9 @@ export function normaliseEircode(raw: string): string {
  */
 export function isValidEircodeFormat(code: string): boolean {
   const normalised = normaliseEircode(code);
-  return /^[AC-FHKNPRTVY]{1}[0-9]{2}[0-9AC-FHKNPRTVY]{4}$/.test(normalised);
+  // 7 alphanumeric chars: 3-char routing key + 4-char unique identifier
+  // Accepts all valid Irish county prefixes including W (Kildare), X (Waterford), etc.
+  return /^[A-Z][0-9]{2}[A-Z0-9]{4}$/.test(normalised);
 }
 
 /**

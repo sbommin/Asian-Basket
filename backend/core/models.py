@@ -866,3 +866,64 @@ class Policy(models.Model):
 
     def __str__(self):
         return f"{self.get_policy_type_display()} (last updated {self.last_updated.strftime('%d %b %Y')})"
+      # ============================================================
+# ADD TO BOTTOM OF core/models.py
+# ============================================================
+
+from django.db import models
+
+
+class ProductVariant(models.Model):
+    """
+    Represents a weight/size variant for a product.
+    e.g. Basmati Rice → 250g (€1.99), 500g (€3.49), 1kg (€5.99)
+    e.g. Atta → 5kg (€8.99), 10kg (€15.99), 20kg (€28.99)
+    """
+
+    product = models.ForeignKey(
+        "Product",
+        on_delete=models.CASCADE,
+        related_name="variants",
+    )
+
+    # Display label shown in dropdown e.g. "250g", "500g", "1kg", "5kg"
+    label = models.CharField(
+        max_length=50,
+        help_text='e.g. "250g", "500g", "1kg", "5kg", "10kg"'
+    )
+
+    # Weight in kg (used for delivery calculation)
+    weight_kg = models.FloatField(
+        help_text="Weight in KG (e.g. 0.25 for 250g, 1.0 for 1kg, 5.0 for 5kg)"
+    )
+
+    # Price for this variant
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # MRP for this variant (optional — for discount badge)
+    mrp = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+    )
+
+    # Stock for this variant
+    in_stock      = models.BooleanField(default=True)
+    stock_quantity = models.PositiveIntegerField(default=0)
+
+    # Display order in dropdown
+    sort_order = models.PositiveIntegerField(default=0)
+
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sort_order", "weight_kg"]
+        verbose_name        = "Product Variant"
+        verbose_name_plural = "Product Variants"
+
+    def __str__(self):
+        return f"{self.product.name} — {self.label} (€{self.price})"
+
+    @property
+    def final_stock_status(self):
+        return self.in_stock and self.stock_quantity > 0
+

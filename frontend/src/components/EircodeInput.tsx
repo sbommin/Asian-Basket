@@ -34,13 +34,13 @@ const EircodeInput = ({ onAddressFilled, defaultValue = "", disabled = false }: 
   const [message, setMessage]   = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow letters, digits and spaces only — max 8 chars (with space)
-    const val = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 8);
-    setEircode(val);
-    // Auto-insert space after first 3 chars for UX
-    if (val.replace(/\s/g, "").length === 3 && !val.includes(" ")) {
-      setEircode(val + " ");
-    }
+    // Strip everything except letters and digits, uppercase
+    const stripped = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+    // Always format as "XXX XXXX" if we have more than 3 chars
+    const formatted = stripped.length > 3
+      ? stripped.slice(0, 3) + " " + stripped.slice(3)
+      : stripped;
+    setEircode(formatted);
     setStatus("idle");
     setMessage("");
   };
