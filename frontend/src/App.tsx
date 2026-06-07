@@ -25,6 +25,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AboutUs from "./pages/AboutUs";
 import ContactUs from "./pages/ContactUs";
 import ShippingPolicy from "./pages/ShippingPolicy";
+import AbandonedCarts from "./pages/AbandonedCarts";
+import SalesReports from "./pages/SalesReports";
 import ScrollToTop from "@/components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -78,6 +80,22 @@ const App = () => (
                   <Route path="/about" element={<AboutUs />} />
                   <Route path="/contact" element={<ContactUs />} />
                   <Route path="/shipping-policy" element={<ShippingPolicy />} />
+                  <Route
+                    path="/admin/abandoned-carts"
+                    element={
+                      <ProtectedRoute>
+                        <AbandonedCarts />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/sales-reports"
+                    element={
+                      <ProtectedRoute>
+                        <SalesReports />
+                      </ProtectedRoute>
+                    }
+                  />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

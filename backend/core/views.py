@@ -96,6 +96,7 @@ class LoginView(APIView):
                         'email': user.email,
                         'full_name': user.full_name,
                         'phone': user.phone or '',
+                        'is_staff': user.is_staff,
                     }
                 }, status=200)
         
@@ -858,6 +859,184 @@ from rest_framework import status
 
 from .models import AbandonedCart
 from .serializers import AbandonedCartSyncSerializer, AbandonedCartAdminSerializer
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SALES REPORTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from django.db.models import Sum, Count, F, DecimalField, ExpressionWrapper
+from django.db.models.functions import TruncDay, TruncMonth
+from decimal import Decimal
+import datetime
+
+# Irish VAT rate for food (most grocery items = 0%, some = 13.5%)
+# We surface gross totals and let the admin apply the correct rate.
+# For the VAT report we show 0% (zero-rated food) and flag non-zero items.
+VAT_RATE = Decimal("0.00")   # adjust if you charge VAT
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def sales_report(request):
+    """
+    Admin sales report covering:
+      - daily sales (last 30 days)
+      - monthly sales (last 12 months)
+      - VAT summary
+      - top products by revenue
+    Query params:
+      ?days=30        override daily window
+      ?months=12      override monthly window
+    Only PAID orders are included.
+    """
+    days_window   = int(request.query_params.get("days",   30))
+    months_window = int(request.query_params.get("months", 12))
+
+    now       = datetime.datetime.now(datetime.timezone.utc)
+    day_start = now - datetime.timedelta(days=days_window)
+    mon_start = now - datetime.timedelta(days=months_window * 30)
+
+    paid_orders = Order.objects.filter(payment_status="PAID")
+
+    # ── Daily sales ──────────────────────────────────────────────────────────
+    daily = (
+        paid_orders
+        .filter(created_at__gte=day_start)
+        .annotate(day=TruncDay("created_at"))
+        .values("day")
+        .annotate(
+            orders=Count("id"),
+            revenue=Sum("total_amount"),
+            subtotal=Sum("subtotal"),
+            discounts=Sum("discount"),
+            delivery=Sum("delivery_fee"),
+        )
+        .order_by("day")
+    )
+
+    daily_data = [
+        {
+            "date":      d["day"].strftime("%Y-%m-%d"),
+            "orders":    d["orders"],
+            "revenue":   float(d["revenue"]   or 0),
+            "subtotal":  float(d["subtotal"]  or 0),
+            "discounts": float(d["discounts"] or 0),
+            "delivery":  float(d["delivery"]  or 0),
+        }
+        for d in daily
+    ]
+
+    # ── Monthly sales ────────────────────────────────────────────────────────
+    monthly = (
+        paid_orders
+        .filter(created_at__gte=mon_start)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(
+            orders=Count("id"),
+            revenue=Sum("total_amount"),
+            subtotal=Sum("subtotal"),
+            discounts=Sum("discount"),
+            delivery=Sum("delivery_fee"),
+        )
+        .order_by("month")
+    )
+
+    monthly_data = [
+        {
+            "month":     m["month"].strftime("%Y-%m"),
+            "label":     m["month"].strftime("%b %Y"),
+            "orders":    m["orders"],
+            "revenue":   float(m["revenue"]   or 0),
+            "subtotal":  float(m["subtotal"]  or 0),
+            "discounts": float(m["discounts"] or 0),
+            "delivery":  float(m["delivery"]  or 0),
+        }
+        for m in monthly
+    ]
+
+    # ── VAT report (last 12 months) ──────────────────────────────────────────
+    # Most Irish food = 0% VAT. We report gross revenue and note VAT liability.
+    vat_monthly = (
+        paid_orders
+        .filter(created_at__gte=mon_start)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(
+            orders=Count("id"),
+            gross=Sum("total_amount"),
+            delivery_income=Sum("delivery_fee"),
+        )
+        .order_by("month")
+    )
+
+    vat_data = []
+    for v in vat_monthly:
+        gross          = float(v["gross"]           or 0)
+        delivery       = float(v["delivery_income"] or 0)
+        food_net       = gross - delivery           # zero-rated food
+        delivery_vat   = round(delivery * 0.23, 2)  # delivery at 23%
+        vat_data.append({
+            "month":        v["month"].strftime("%Y-%m"),
+            "label":        v["month"].strftime("%b %Y"),
+            "orders":       v["orders"],
+            "gross":        round(gross, 2),
+            "food_net":     round(food_net, 2),
+            "food_vat":     0.00,                   # zero-rated
+            "delivery_net": round(delivery, 2),
+            "delivery_vat": delivery_vat,
+            "total_vat":    delivery_vat,
+        })
+
+    # ── Top products by revenue ──────────────────────────────────────────────
+    top_products = (
+        OrderItem.objects
+        .filter(order__payment_status="PAID", order__created_at__gte=mon_start)
+        .values("product_name")
+        .annotate(
+            units_sold=Sum("quantity"),
+            revenue=Sum(
+                ExpressionWrapper(
+                    F("price") * F("quantity"),
+                    output_field=DecimalField(max_digits=10, decimal_places=2),
+                )
+            ),
+            orders=Count("order", distinct=True),
+        )
+        .order_by("-revenue")[:50]
+    )
+
+    product_data = [
+        {
+            "product":    p["product_name"],
+            "units_sold": p["units_sold"],
+            "revenue":    float(p["revenue"] or 0),
+            "orders":     p["orders"],
+        }
+        for p in top_products
+    ]
+
+    # ── Summary totals ───────────────────────────────────────────────────────
+    all_time = paid_orders.aggregate(
+        total_orders=Count("id"),
+        total_revenue=Sum("total_amount"),
+        total_discounts=Sum("discount"),
+        total_delivery=Sum("delivery_fee"),
+    )
+
+    return Response({
+        "summary": {
+            "total_orders":    all_time["total_orders"]    or 0,
+            "total_revenue":   float(all_time["total_revenue"]   or 0),
+            "total_discounts": float(all_time["total_discounts"] or 0),
+            "total_delivery":  float(all_time["total_delivery"]  or 0),
+        },
+        "daily":    daily_data,
+        "monthly":  monthly_data,
+        "vat":      vat_data,
+        "products": product_data,
+    })
 
 
 # ─── 1. SYNC CART (called from frontend on every cart change) ────────────────

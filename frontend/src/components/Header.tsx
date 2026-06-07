@@ -312,6 +312,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Menu, Heart, ShoppingBag, User, LogOut,
   Package, MapPin, Phone, Loader2,
+  LayoutDashboard, ShoppingCart, TrendingUp,
 } from "lucide-react";
 import axios from "axios";
 
@@ -474,6 +475,23 @@ const Header = () => {
 
                   <hr />
 
+                  {user?.is_staff && (
+                    <>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                          Admin
+                        </p>
+                        <Link to="/admin/abandoned-carts" className="flex items-center gap-2 py-2 text-sm font-medium hover:text-primary" onClick={() => setIsMobileMenuOpen(false)}>
+                          <ShoppingCart className="h-4 w-4" /> Abandoned Carts
+                        </Link>
+                        <Link to="/admin/sales-reports" className="flex items-center gap-2 py-2 text-sm font-medium hover:text-primary" onClick={() => setIsMobileMenuOpen(false)}>
+                          <TrendingUp className="h-4 w-4" /> Sales Reports
+                        </Link>
+                      </div>
+                      <hr />
+                    </>
+                  )}
+
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                       Get in Touch
@@ -554,6 +572,38 @@ const Header = () => {
                   <span>Login</span>
                 </Button>
               </Link>
+            )}
+
+            {/* ── ADMIN MENU (staff only) ── */}
+            {user?.is_staff && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hidden md:flex items-center gap-1.5 border-primary/40 text-primary hover:bg-primary/10 font-semibold"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Admin
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Admin Panel
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/admin/abandoned-carts")}>
+                    <ShoppingCart className="mr-2 h-4 w-4" /> Abandoned Carts
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/sales-reports")}>
+                    <TrendingUp className="mr-2 h-4 w-4" /> Sales Reports
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => window.open("https://api.asianbasket.ie/admin/", "_blank")}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Django Admin
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             <Button

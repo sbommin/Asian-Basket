@@ -81,7 +81,7 @@ from .views import (
     create_revolut_payment,
     verify_revolut_payment
 )
-from .views import offer_list
+from .views import offer_list, sync_abandoned_cart, convert_abandoned_cart, admin_abandoned_carts, admin_abandoned_cart_detail, sales_report
 router = DefaultRouter()
 router.register(r"addresses", AddressViewSet, basename="addresses")
 
@@ -101,6 +101,13 @@ urlpatterns = [
     path("payment/verify/", verify_revolut_payment),
     path("payment/webhook/revolut/", revolut_webhook, name="revolut-webhook"),
     path("offers/", offer_list, name="offer-list"),
+    # Abandoned cart
+    path("cart/sync/",                      sync_abandoned_cart,         name="cart-sync"),
+    path("cart/convert/",                   convert_abandoned_cart,      name="cart-convert"),
+    path("admin/abandoned-carts/",          admin_abandoned_carts,       name="admin-abandoned-carts"),
+    path("admin/abandoned-carts/<int:pk>/", admin_abandoned_cart_detail, name="admin-abandoned-cart-detail"),
+    # Sales reports
+    path("admin/sales-report/",             sales_report,                name="sales-report"),
     path('', include(router.urls)),
 ]
 

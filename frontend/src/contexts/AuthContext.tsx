@@ -67,8 +67,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const loggedUser: User = {
         id: res.data.user.id,
         email: res.data.user.email,
-        name: res.data.user.full_name, // 👈 CRITICAL FIX HERE
+        name: res.data.user.full_name,
         phone: res.data.user.phone || "",
+        is_staff: res.data.user.is_staff || false,
       };
       setUser(loggedUser);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedUser));
